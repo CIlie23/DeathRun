@@ -16,7 +16,7 @@ import static eu.okaeri.configs.annotation.NameStrategy.HYPHEN_CASE;
 import static java.util.List.of;
 import static org.bukkit.Material.*;
 import static org.bukkit.Sound.*;
-import static org.bukkit.potion.PotionEffectType.JUMP;
+import static org.bukkit.potion.PotionEffectType.JUMP_BOOST;
 import static org.bukkit.potion.PotionEffectType.SPEED;
 import static pl.mrstudios.deathrun.api.arena.booster.enums.Direction.FORWARD;
 
@@ -80,7 +80,7 @@ public class PluginConfiguration extends OkaeriConfig {
     })
 
     public List<BlockEffect> blockEffects = of(
-            new BlockEffect(EMERALD_BLOCK, JUMP, 7, 1.5f),
+            new BlockEffect(EMERALD_BLOCK, JUMP_BOOST, 7, 1.5f),
             new BlockEffect(REDSTONE_BLOCK, SPEED, 5, 1.5f)
     );
 

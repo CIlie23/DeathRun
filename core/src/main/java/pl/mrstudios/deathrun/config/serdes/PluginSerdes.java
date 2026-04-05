@@ -17,6 +17,7 @@ public class PluginSerdes implements OkaeriSerdesPack {
         registry.register(new BlockEffectSerializer());
         registry.register(new BoosterSerializer());
         registry.register(new BoosterItemSerializer());
+        registry.register(new SoundSerializer());
     }
 
 }

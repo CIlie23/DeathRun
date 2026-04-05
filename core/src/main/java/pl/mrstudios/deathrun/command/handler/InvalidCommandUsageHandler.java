@@ -14,6 +14,8 @@ import static net.kyori.adventure.text.minimessage.MiniMessage.miniMessage;
 
 public class InvalidCommandUsageHandler implements InvalidUsageHandler<CommandSender> {
 
+    private static final String PREFIX = "<gold>[DR]</gold> ";
+
     private final BukkitAudiences audiences;
     private final Configuration configuration;
 
@@ -32,10 +34,33 @@ public class InvalidCommandUsageHandler implements InvalidUsageHandler<CommandSe
             @NotNull InvalidUsage<CommandSender> result,
             @NotNull ResultHandlerChain<CommandSender> chain
     ) {
-        this.audiences.sender(invocation.sender()).sendMessage(miniMessage().deserialize(
-                this.configuration.language().chatMessageInvalidCommandUsage
-                        .replace("<usage>", result.getSchematic().first())
-        ));
+        String usage = usageFor(invocation);
+        this.audiences.sender(invocation.sender()).sendMessage(miniMessage().deserialize(PREFIX + usage));
+    }
+
+    private @NotNull String usageFor(@NotNull Invocation<CommandSender> invocation) {
+        if (invocation.arguments().asList().isEmpty()) {
+            return this.configuration.map().arenaSetupEnabled
+                    ? "<red>Invalid usage. <gray>Try: <white>/deathrun <dark_gray>| <white>/deathrun leave <dark_gray>| <white>/deathrun setup"
+                    : "<red>Invalid usage. <gray>Try: <white>/deathrun <dark_gray>| <white>/deathrun leave";
+        }
+
+        String first = invocation.arguments().asList().get(0).toLowerCase();
+        if (!"setup".equals(first)) {
+            return this.configuration.map().arenaSetupEnabled
+                    ? "<red>Unknown subcommand. <gray>Use <white>/deathrun setup <gray>for setup commands or <white>/deathrun leave"
+                    : "<red>Unknown subcommand. <gray>Use <white>/deathrun leave";
+        }
+
+        if (invocation.arguments().asList().size() == 1) {
+            return "<gray>Setup commands: <white>/deathrun setup help";
+        }
+
+        if (!this.configuration.map().arenaSetupEnabled) {
+            return "<red>Setup is disabled for this arena.";
+        }
+
+        return "<red>Invalid setup usage. <gray>Try: <white>/deathrun setup setname <name><dark_gray>, <white>setwaitinglobby<dark_gray>, <white>setstartbarrier (material)<dark_gray>, <white>addspawn <death/runner><dark_gray>, <white>addtrap <type> (args)<dark_gray>, <white>addcheckpoint<dark_gray>, <white>addteleport<dark_gray>, <white>save";
     }
 
 }

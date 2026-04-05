@@ -31,7 +31,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.sk89q.worldedit.bukkit.BukkitAdapter.adapt;
-import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.createFile;
@@ -51,6 +50,8 @@ import static pl.mrstudios.deathrun.util.ChannelUtil.connect;
 ) @SuppressWarnings("unused")
 @Permission("mrstudios.command.deathrun")
 public class CommandDeathRun {
+
+    private static final String PREFIX = "<gold>[DR]</gold> ";
 
     private final Plugin plugin;
     private final WorldEdit worldEdit;
@@ -79,15 +80,16 @@ public class CommandDeathRun {
     public void noArguments(
             @Context Player player
     ) {
+        String content = join("<br>", this.configuration.language().commandHelpMainLines)
+            .replace("<version>", this.plugin.getDescription().getVersion());
+        this.message(player, content);
+    }
 
-        this.message(player, join("<br>",
-                "<reset>",
-                "<reset>    <gold>DeathRun <dark_gray>(v%s) <gray>by <white>MrStudios Industries",
-                "<reset>",
-                "<reset> <b>*</b> <white>/deathrun leave",
-                "<reset> <b>*</b> <white>/deathrun setup",
-                "<reset>"
-        ), this.plugin.getDescription().getVersion());
+    @Execute(name = "help")
+    public void help(
+            @Context Player player
+    ) {
+        this.noArguments(player);
     }
 
     @Execute(name = "leave")
@@ -106,24 +108,21 @@ public class CommandDeathRun {
     ) {
 
         if (!this.configuration.map().arenaSetupEnabled) {
-            this.audiences.player(player).sendMessage(miniMessage().deserialize("<reset> <dark_red><b>*</b> <red>You can't use that command while setup is disabled."));
+            this.message(player, this.configuration.language().commandMessageSetupDisabled);
             return;
         }
 
-        this.message(player, join("<br>",
-                "<reset>",
-                "<reset>    <gold>DeathRun <dark_gray>(v%s) <gray>by <white>MrStudios Industries",
-                "<reset>",
-                "<reset> <b>*</b> <white>/deathrun setup setname <name>",
-                "<reset> <b>*</b> <white>/deathrun setup setwaitinglobby",
-                "<reset> <b>*</b> <white>/deathrun setup setstartbarrier (material)",
-                "<reset> <b>*</b> <white>/deathrun setup addspawn <death/runner>",
-                "<reset> <b>*</b> <white>/deathrun setup addtrap <type> (objects)",
-                "<reset> <b>*</b> <white>/deathrun setup addcheckpoint",
-                "<reset> <b>*</b> <white>/deathrun setup addteleport",
-                "<reset> <b>*</b> <white>/deathrun setup save",
-                "<reset>"
-        ), this.plugin.getDescription().getVersion());
+        String content = join("<br>", this.configuration.language().commandHelpSetupLines)
+            .replace("<version>", this.plugin.getDescription().getVersion());
+        this.message(player, content);
+    }
+
+    @Execute(name = "setup help")
+    @Permission("mrstudios.command.deathrun.setup")
+    public void setupHelp(
+            @Context Player player
+    ) {
+        this.noArgumentsSetup(player);
     }
 
     @Execute(name = "setup addcheckpoint")
@@ -133,7 +132,7 @@ public class CommandDeathRun {
     ) {
 
         if (!this.configuration.map().arenaSetupEnabled) {
-            this.audiences.player(player).sendMessage(miniMessage().deserialize("<reset> <dark_red><b>*</b> <red>You can't use that command while setup is disabled."));
+            this.message(player, this.configuration.language().commandMessageSetupDisabled);
             return;
         }
 
@@ -141,7 +140,7 @@ public class CommandDeathRun {
                 new Checkpoint(this.configuration.map().arenaCheckpoints.size(), player.getLocation().toCenterLocation(), this.locations(player))
         );
 
-        this.message(player, "<reset> <dark_green><b>*</b> <green>Arena checkpoint has been added.");
+        this.message(player, this.configuration.language().commandMessageCheckpointAdded);
 
     }
 
@@ -153,7 +152,7 @@ public class CommandDeathRun {
     ) {
 
         if (!this.configuration.map().arenaSetupEnabled) {
-            this.audiences.player(player).sendMessage(miniMessage().deserialize("<reset> <dark_red><b>*</b> <red>You can't use that command while setup is disabled."));
+            this.message(player, this.configuration.language().commandMessageSetupDisabled);
             return;
         }
 
@@ -166,14 +165,14 @@ public class CommandDeathRun {
                     this.configuration.map().arenaDeathSpawnLocations.add(player.getLocation().toCenterLocation());
 
             default ->
-                    this.message(player, "<reset> <dark_red><b>*</b> <red>You must select <dark_red>RUNNER <red>or <dark_red>DEATH <red>role.");
+                    this.message(player, this.configuration.language().commandMessageRoleInvalid);
 
         }
 
         if (role != DEATH && role != RUNNER)
             return;
 
-        this.message(player, "<reset> <dark_green><b>*</b> <green>Added <dark_green>%s <green>role spawn.", role.name());
+        this.message(player, this.configuration.language().commandMessageRoleSpawnAdded.replace("<role>", role.name()));
 
     }
 
@@ -226,12 +225,12 @@ public class CommandDeathRun {
     ) {
 
         if (!this.configuration.map().arenaSetupEnabled) {
-            this.audiences.player(player).sendMessage(miniMessage().deserialize("<reset> <dark_red><b>*</b> <red>You can't use that command while setup is disabled."));
+            this.message(player, this.configuration.language().commandMessageSetupDisabled);
             return;
         }
 
         this.configuration.map().arenaName = name;
-        this.message(player, "<reset> <dark_green><b>*</b> <green>Arena name has been set to <dark_green>%s<green>.", name);
+        this.message(player, this.configuration.language().commandMessageArenaNameSet.replace("<name>", name));
 
     }
 
@@ -251,7 +250,7 @@ public class CommandDeathRun {
     ) {
 
         if (!this.configuration.map().arenaSetupEnabled) {
-            this.audiences.player(player).sendMessage(miniMessage().deserialize("<reset> <dark_red><b>*</b> <red>You can't use that command while setup is disabled."));
+            this.message(player, this.configuration.language().commandMessageSetupDisabled);
             return;
         }
 
@@ -261,7 +260,7 @@ public class CommandDeathRun {
             locations.removeIf((location) -> !location.getBlock().getType().equals(material));
 
         this.configuration.map().arenaStartBarrierBlocks = locations;
-        this.message(player, "<reset> <dark_green><b>*</b> <green>Arena start barrier has been set.");
+        this.message(player, this.configuration.language().commandMessageStartBarrierSet);
 
     }
 
@@ -272,12 +271,12 @@ public class CommandDeathRun {
     ) {
 
         if (!this.configuration.map().arenaSetupEnabled) {
-            this.audiences.player(player).sendMessage(miniMessage().deserialize("<reset> <dark_red><b>*</b> <red>You can't use that command while setup is disabled."));
+            this.message(player, this.configuration.language().commandMessageSetupDisabled);
             return;
         }
 
         this.configuration.map().arenaWaitingLobbyLocation = player.getLocation().toCenterLocation();
-        this.message(player, "<reset> <dark_green><b>*</b> <green>Arena waiting lobby has been set.");
+        this.message(player, this.configuration.language().commandMessageWaitingLobbySet);
 
     }
 
@@ -288,12 +287,12 @@ public class CommandDeathRun {
     ) {
 
         if (!this.configuration.map().arenaSetupEnabled) {
-            this.audiences.player(player).sendMessage(miniMessage().deserialize("<reset> <dark_red><b>*</b> <red>You can't use that command while setup is disabled."));
+            this.message(player, this.configuration.language().commandMessageSetupDisabled);
             return;
         }
 
         this.configuration.map().teleportPads.add(new TeleportPad(locations(player).get(0), player.getLocation().toCenterLocation().add(0, -0.5, 0)));
-        this.message(player, "<reset> <dark_green><b>*</b> <green>Added arena teleport pad.");
+        this.message(player, this.configuration.language().commandMessageTeleportPadAdded);
 
     }
 
@@ -304,14 +303,14 @@ public class CommandDeathRun {
     ) {
 
         if (!this.configuration.map().arenaSetupEnabled) {
-            this.audiences.player(player).sendMessage(miniMessage().deserialize("<reset> <dark_red><b>*</b> <red>You can't use that command while setup is disabled."));
+            this.message(player, this.configuration.language().commandMessageSetupDisabled);
             return;
         }
 
         this.configuration.map().arenaSetupEnabled = false;
         this.configuration.map().save();
 
-        Path path = get(this.plugin.getDataFolder().toString(), "backup/", format("%s.zip", player.getWorld().getName()));
+        Path path = get(this.plugin.getDataFolder().toString(), "backup/", player.getWorld().getName() + ".zip");
 
         try {
             createDirectories(path.getParent());
@@ -324,7 +323,7 @@ public class CommandDeathRun {
             zipFile.addFolder(player.getWorld().getWorldFolder());
         } catch (@NotNull Exception ignored) {}
 
-        this.message(player, "<reset> <dark_green><b>*</b> <green>Arena configuration saved successfully, please restart server to apply changes.");
+        this.message(player, this.configuration.language().commandMessageSaveSuccess);
 
     }
 
@@ -332,7 +331,10 @@ public class CommandDeathRun {
             @NotNull Player player, String message,
             @Nullable Object... args
     ) {
-        this.audiences.player(player).sendMessage(miniMessage().deserialize(format(message, args)));
+        String content = (args != null && args.length > 0)
+            ? java.lang.String.format(message, args)
+            : message;
+        this.audiences.player(player).sendMessage(miniMessage().deserialize(content));
     }
 
     protected List<Location> locations(@NotNull Player player) {
@@ -362,7 +364,7 @@ public class CommandDeathRun {
     ) throws Exception {
 
         if (!this.configuration.map().arenaSetupEnabled) {
-            this.audiences.player(player).sendMessage(miniMessage().deserialize("<reset> <dark_red><b>*</b> <red>You can't use that command while setup is disabled."));
+            this.message(player, this.configuration.language().commandMessageSetupDisabled);
             return;
         }
 
@@ -382,12 +384,12 @@ public class CommandDeathRun {
                 POLISHED_BLACKSTONE_BUTTON,
                 DARK_OAK_BUTTON
         ).noneMatch((button) -> target.getType().equals(button))) {
-            this.message(player, "<reset> <dark_red><b>*</b> <red>You must look at button that is activating trap.");
+            this.message(player, this.configuration.language().commandMessageTrapLookAtButton);
             return;
         }
 
         if (trapClass == null) {
-            this.message(player, "<reset> <dark_red><b>*</b> <red>Trap <dark_red>%s <red>is not exists.", type.toUpperCase());
+            this.message(player, this.configuration.language().commandMessageTrapNotExists.replace("<type>", type.toUpperCase()));
             return;
         }
 
@@ -398,7 +400,7 @@ public class CommandDeathRun {
         ofNullable(objects).ifPresent(trap::setExtra);
 
         this.configuration.map().arenaTraps.add(trap);
-        this.message(player, "<reset> <dark_green><b>*</b> <green>Added trap <dark_green>%s <green>to arena.", type.toUpperCase());
+        this.message(player, this.configuration.language().commandMessageTrapAdded.replace("<type>", type.toUpperCase()));
 
     }
 

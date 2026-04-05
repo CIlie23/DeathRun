@@ -4,6 +4,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 import pl.mrstudios.commons.inject.annotation.Inject;
@@ -34,10 +35,13 @@ public class ArenaClickItemListener implements Listener {
             @NotNull PlayerInteractEvent event
     ) {
 
+        if (event.getHand() != EquipmentSlot.HAND)
+            return;
+
         if (event.getAction() != RIGHT_CLICK_BLOCK && event.getAction() != RIGHT_CLICK_AIR)
             return;
 
-        if (event.getPlayer().getItemInHand().getType() != RED_BED)
+        if (event.getItem() == null || event.getItem().getType() != RED_BED)
             return;
 
         connect(plugin, event.getPlayer(), this.configuration.plugin().server);

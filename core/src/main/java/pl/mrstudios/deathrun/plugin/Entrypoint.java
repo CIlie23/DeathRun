@@ -20,6 +20,7 @@ import pl.mrstudios.deathrun.arena.Arena;
 import pl.mrstudios.deathrun.arena.ArenaServiceRunnable;
 import pl.mrstudios.deathrun.arena.trap.TrapRegistry;
 import pl.mrstudios.deathrun.arena.trap.impl.*;
+import pl.mrstudios.deathrun.command.CommandDeathRun;
 import pl.mrstudios.deathrun.command.handler.InvalidCommandUsageHandler;
 import pl.mrstudios.deathrun.command.handler.NoCommandPermissionsHandler;
 import pl.mrstudios.deathrun.config.Configuration;
@@ -125,12 +126,7 @@ public class Entrypoint extends JavaPlugin {
                 .missingPermission(this.injector.inject(NoCommandPermissionsHandler.class))
 
                 /* Commands */
-                .commands(of(
-                        new Reflections<>("pl.mrstudios.deathrun.command")
-                                .getClassesAnnotatedWith(Command.class)
-                                .stream().map(this.injector::inject)
-                                .filter(Objects::nonNull).toArray(Object[]::new)
-                ))
+                .commands(of(this.injector.inject(CommandDeathRun.class)))
 
                 /* Schematic */
                 .schematicGenerator(angleBrackets())

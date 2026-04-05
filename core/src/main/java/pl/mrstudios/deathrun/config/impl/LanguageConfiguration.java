@@ -39,6 +39,50 @@ public class LanguageConfiguration extends OkaeriConfig {
     public String chatMessageArenaStartingTimer = "<yellow>Game starts in <gold><timer> seconds<yellow>.";
     public String chatMessageArenaPlayerFinished = "<reset> <white><b>FINISH ></b> <gray>Player <gold><player> <gray>has finished game in <white><seconds> seconds<gray>. <dark_gray>(#<finishPosition>)";
 
+    @Comment({
+            "",
+            "------------------------------------------------------------------------",
+            "                                COMMANDS",
+            "------------------------------------------------------------------------",
+            ""
+    })
+    public List<String> commandHelpMainLines = asList(
+            "<reset>",
+            "<reset>    <gold>DeathRun <dark_gray>(v<version>) <gray>by <white>MrStudios Industries",
+            "<reset>",
+            "<reset> <b>*</b> <white>/deathrun help",
+            "<reset> <b>*</b> <white>/deathrun leave",
+            "<reset> <b>*</b> <white>/deathrun setup",
+            "<reset>"
+    );
+    public List<String> commandHelpSetupLines = asList(
+            "<reset>",
+            "<reset>    <gold>DeathRun <dark_gray>(v<version>) <gray>by <white>MrStudios Industries",
+            "<reset>",
+            "<reset> <b>*</b> <white>/deathrun setup help",
+            "<reset> <b>*</b> <white>/deathrun setup setname <name>",
+            "<reset> <b>*</b> <white>/deathrun setup setwaitinglobby",
+            "<reset> <b>*</b> <white>/deathrun setup setstartbarrier (material)",
+            "<reset> <b>*</b> <white>/deathrun setup addspawn <death/runner>",
+            "<reset> <b>*</b> <white>/deathrun setup addtrap <type> (objects)",
+            "<reset> <b>*</b> <white>/deathrun setup addcheckpoint",
+            "<reset> <b>*</b> <white>/deathrun setup addteleport",
+            "<reset> <b>*</b> <white>/deathrun setup save",
+            "<reset>"
+    );
+    public String commandMessageSetupDisabled = "<dark_red><b>*</b> <red>You can't use that command while setup is disabled.";
+    public String commandMessageCheckpointAdded = "<reset> <dark_green><b>*</b> <green>Arena checkpoint has been added.";
+    public String commandMessageRoleInvalid = "<reset> <dark_red><b>*</b> <red>You must select <dark_red>RUNNER <red>or <dark_red>DEATH <red>role.";
+    public String commandMessageRoleSpawnAdded = "<reset> <dark_green><b>*</b> <green>Added <dark_green><role> <green>role spawn.";
+    public String commandMessageArenaNameSet = "<reset> <dark_green><b>*</b> <green>Arena name has been set to <dark_green><name><green>.";
+    public String commandMessageStartBarrierSet = "<reset> <dark_green><b>*</b> <green>Arena start barrier has been set.";
+    public String commandMessageWaitingLobbySet = "<reset> <dark_green><b>*</b> <green>Arena waiting lobby has been set.";
+    public String commandMessageTeleportPadAdded = "<reset> <dark_green><b>*</b> <green>Added arena teleport pad.";
+    public String commandMessageSaveSuccess = "<reset> <dark_green><b>*</b> <green>Arena configuration saved successfully, please restart server to apply changes.";
+    public String commandMessageTrapLookAtButton = "<reset> <dark_red><b>*</b> <red>You must look at button that is activating trap.";
+    public String commandMessageTrapNotExists = "<reset> <dark_red><b>*</b> <red>Trap <dark_red><type> <red>is not exists.";
+    public String commandMessageTrapAdded = "<reset> <dark_green><b>*</b> <green>Added trap <dark_green><type> <green>to arena.";
+
     public List<String> chatMessageArenaGameStartRunner = asList(
             "<reset>",
             "<reset>   <gold><b>*</b> <gray>You are <green>Runner<gray>.",

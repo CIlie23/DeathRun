@@ -18,7 +18,7 @@ project.group = project.parent?.group!!
 project.version = project.parent?.version!!
 
 java {
-    toolchain.languageVersion.set(JavaLanguageVersion.of(17))
+    toolchain.languageVersion.set(JavaLanguageVersion.of(21))
 }
 
 blossom {
@@ -35,8 +35,8 @@ repositories {
 dependencies {
 
     /* Minecraft */
-    compileOnly("com.destroystokyo.paper:paper-api:${project.parent?.property("minecraft.version")}")
-
+    //compileOnly("com.destroystokyo.paper:paper-api:${project.parent?.property("minecraft.version")}")
+    compileOnly("io.papermc.paper:paper-api:${project.parent?.property("minecraft.version")}")
     /* JetBrains Annotations */
     compileOnly("org.jetbrains:annotations:${project.parent?.property("jetbrains.annotations.version")}")
     annotationProcessor("org.jetbrains:annotations:${project.parent?.property("jetbrains.annotations.version")}")

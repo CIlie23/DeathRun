@@ -14,6 +14,8 @@ import static net.kyori.adventure.text.minimessage.MiniMessage.miniMessage;
 
 public class NoCommandPermissionsHandler implements MissingPermissionsHandler<CommandSender> {
 
+    private static final String PREFIX = "<gold>[DR]</gold> ";
+
     private final BukkitAudiences audiences;
     private final Configuration configuration;
 
@@ -32,7 +34,9 @@ public class NoCommandPermissionsHandler implements MissingPermissionsHandler<Co
             @NotNull MissingPermissions missingPermissions,
             @NotNull ResultHandlerChain<CommandSender> resultHandlerChain
     ) {
-        this.audiences.sender(invocation.sender()).sendMessage(miniMessage().deserialize(this.configuration.language().chatMessageNoPermissions));
+        this.audiences.sender(invocation.sender()).sendMessage(miniMessage().deserialize(
+            PREFIX + this.configuration.language().chatMessageNoPermissions
+        ));
     }
 
 }

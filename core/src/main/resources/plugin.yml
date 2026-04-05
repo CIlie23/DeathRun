@@ -1,13 +1,34 @@
 # Plugin Information
-name: 'DeathRun'
-description: 'An minigame based on popular game from HiveMC server.'
-version: '${version}'
+name: "DeathRun"
+description: "An minigame based on popular game from HiveMC server."
+version: "${version}"
 
 # Dependencies
 softdepend:
-  - 'WorldEdit'
+  - "WorldEdit"
+
+# Commands
+commands:
+  deathrun:
+    description: "DeathRun main command"
+    usage: "/<command> [leave|setup]"
+    aliases:
+      - "dr"
+    permission: "mrstudios.command.deathrun"
+
+# Permissions
+permissions:
+  mrstudios.command.deathrun:
+    description: "Allows using /deathrun"
+    default: true
+  mrstudios.command.deathrun.leave:
+    description: "Allows using /deathrun leave"
+    default: true
+  mrstudios.command.deathrun.setup:
+    description: "Allows using /deathrun setup and setup subcommands"
+    default: op
 
 # Plugin Data
-load: 'POSTWORLD'
-api-version: '1.16'
-main: 'pl.mrstudios.deathrun.plugin.Entrypoint'
+load: "POSTWORLD"
+api-version: "1.21"
+main: "pl.mrstudios.deathrun.plugin.Entrypoint"

@@ -4,3 +4,4 @@
 **/build/
 **/.gradle/
 **.jar
+.vscode/settings.json

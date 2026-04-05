@@ -1,12 +1,15 @@
 ![Header](./.github/assets/image/header.png)
 
 ### What is that?
+
 DeathRun is a plugin for well known minigame from the HiveMC Network server where players are divided into two teams, runners and deaths. As a runner, you have to run through the entire map, avoiding traps that is triggered by players with the death role will use against you.
 
 ### Information
-This plugin works on ``1.16+`` servers with ``Paper`` or ``Spigot`` server software, ``Java 17`` and ``WorldEdit (v7.2.9+)`` plugin.
+
+This plugin works on `1.16+` servers with `Paper` or `Spigot` server software, `Java 21` and `WorldEdit (v7.2.9+)` plugin.
 
 ### Support
+
 If you need support contact us on our [Discord](https://discord.gg/C8dF6zkYff) server or visit our [Documentation](https://www.mrstudios.pl/documentation) page. If you want to contribute this repository please read [CONTRIBUTING](CONTRIBUTING.md) file.
 
 ### Configuration
@@ -17,15 +20,15 @@ Plugin configuration files using [YAML](https://yaml.org/) format. Configuration
     <summary>File: <code>config.yml</code></summary>
 
 ```yaml
-#  
+#
 # ------------------------------------------------------------------------
 #                               INFORMATION
 # ------------------------------------------------------------------------
-#  
-#  This is configuration file for DeathRun plugin, if you found any issue 
+#
+#  This is configuration file for DeathRun plugin, if you found any issue
 #  contact with us through Discord or create issue on GitHub. If you need
 #  help with configuration visit https://mrstudios.pl/documentation.
-#  
+#
 
 # ------------------------------------------------------------------------
 #                                GENERAL
@@ -107,15 +110,15 @@ arena-sound-player-death: ENTITY_SKELETON_DEATH
     <summary>File: <code>language.yml</code></summary>
 
 ```yaml
-#  
+#
 # ------------------------------------------------------------------------
 #                               INFORMATION
 # ------------------------------------------------------------------------
-#  
-#  This is configuration file for DeathRun plugin, if you found any issue 
+#
+#  This is configuration file for DeathRun plugin, if you found any issue
 #  contact with us through Discord or create issue on GitHub. If you need
 #  help with configuration visit https://mrstudios.pl/documentation.
-#  
+#
 
 # ------------------------------------------------------------------------
 #                                  GENERAL
@@ -125,24 +128,25 @@ chat-message-invalid-command-usage: <red>Invalid command usage, correct usage is
 chat-message-arena-player-joined: <gray><player> <yellow>has joined. <aqua>(<currentPlayers>/<maxPlayers>)
 chat-message-arena-player-left: <gray><player> <yellow>has quit.
 chat-message-arena-starting-timer: <yellow>Game starts in <gold><timer> seconds<yellow>.
-chat-message-arena-player-finished: <reset> <white><b>FINISH ></b> <gray>Player <gold><player>
+chat-message-arena-player-finished:
+  <reset> <white><b>FINISH ></b> <gray>Player <gold><player>
   <gray>has finished game in <white><seconds> seconds<gray>. <dark_gray>(#<finishPosition>)
 chat-message-arena-game-start-runner:
-- <reset>
-- <reset>   <gold><b>*</b> <gray>You are <green>Runner<gray>.
-- <reset>   <white><b>*</b> <gray>Your task is complete run in shortest possible time,
-  during this task interfering player will trigger various traps.
-- <reset>
+  - <reset>
+  - <reset>   <gold><b>*</b> <gray>You are <green>Runner<gray>.
+  - <reset>   <white><b>*</b> <gray>Your task is complete run in shortest possible time,
+    during this task interfering player will trigger various traps.
+  - <reset>
 chat-message-arena-game-start-death:
-- <reset>
-- <reset>   <gold><b>*</b> <gray>You are <red>Death<gray>.
-- <reset>   <white><b>*</b> <gray>Your task is to disturb runners by launching traps.
-- <reset>
+  - <reset>
+  - <reset>   <gold><b>*</b> <gray>You are <red>Death<gray>.
+  - <reset>   <white><b>*</b> <gray>Your task is to disturb runners by launching traps.
+  - <reset>
 chat-message-game-end-spectator:
-- <reset>
-- <reset>   <gold><b>*</b> <gray>You are <dark_gray>Spectator<gray>.
-- <reset>   <white><b>*</b> <gray>Now you can follow other players.
-- <reset>
+  - <reset>
+  - <reset>   <gold><b>*</b> <gray>You are <dark_gray>Spectator<gray>.
+  - <reset>   <white><b>*</b> <gray>Now you can follow other players.
+  - <reset>
 
 # ------------------------------------------------------------------------
 #                                  TITLES
@@ -160,7 +164,8 @@ arena-finish-subtitle: <gray>Your position is <white>#<position><gray>.
 arena-game-end-title: <red><b>GAME END!
 arena-game-end-subtitle: <reset>
 arena-move-server-title: <aqua>Waiting..
-arena-move-server-subtitle: <gray>You will be transferred to lobby in <white><endTimer>
+arena-move-server-subtitle:
+  <gray>You will be transferred to lobby in <white><endTimer>
   seconds<gray>.
 
 # ------------------------------------------------------------------------
@@ -168,32 +173,32 @@ arena-move-server-subtitle: <gray>You will be transferred to lobby in <white><en
 # ------------------------------------------------------------------------
 arena-scoreboard-title: <yellow><b>DEATH RUN
 arena-scoreboard-lines-waiting:
-- <reset>
-- '<white>Map: <green><map>'
-- '<white>Players: <green><currentPlayers>/<maxPlayers>'
-- <reset>
-- <white>Waiting..
-- <reset>
-- <yellow>www.mrstudios.pl
+  - <reset>
+  - "<white>Map: <green><map>"
+  - "<white>Players: <green><currentPlayers>/<maxPlayers>"
+  - <reset>
+  - <white>Waiting..
+  - <reset>
+  - <yellow>www.mrstudios.pl
 arena-scoreboard-lines-starting:
-- <reset>
-- '<white>Map: <green><map>'
-- '<white>Players: <green><currentPlayers>/<maxPlayers>'
-- <reset>
-- <white>Start in <green><timer> seconds
-- <reset>
-- <yellow>www.mrstudios.pl
+  - <reset>
+  - "<white>Map: <green><map>"
+  - "<white>Players: <green><currentPlayers>/<maxPlayers>"
+  - <reset>
+  - <white>Start in <green><timer> seconds
+  - <reset>
+  - <yellow>www.mrstudios.pl
 arena-scoreboard-lines-playing:
-- <reset>
-- '<white>Time: <green><timeFormatted>'
-- '<white>Role: <green><role>'
-- <reset>
-- '<white>Runners: <green><runners>'
-- '<white>Deaths: <red><deaths>'
-- <reset>
-- '<white>Map: <green><map>'
-- <reset>
-- <yellow>www.mrstudios.pl
+  - <reset>
+  - "<white>Time: <green><timeFormatted>"
+  - "<white>Role: <green><role>"
+  - <reset>
+  - "<white>Runners: <green><runners>"
+  - "<white>Deaths: <red><deaths>"
+  - <reset>
+  - "<white>Map: <green><map>"
+  - <reset>
+  - <yellow>www.mrstudios.pl
 
 # ------------------------------------------------------------------------
 #                               HOLOGRAMS
@@ -216,10 +221,13 @@ arena-item-leave-name: <red>Leave <gray>(Right Click)
 </details>
 
 ### Sponsoring
-If you want to sponsor this project you can do it by clicking ``Sponsor`` button. You can also support us by clicking on the star button on the top of this page.
+
+If you want to sponsor this project you can do it by clicking `Sponsor` button. You can also support us by clicking on the star button on the top of this page.
 
 ### Used Libraries
+
 Libraries that is used in this project, most of them are open source libraries.
+
 - [LiteCommands](https://github.com/Rollczi/LiteCommands) by Rollczi
 - [ProtocolSidebar](https://github.com/CatCoderr/ProtocolSidebar) by CatCoderr
 - [Kyori Adventure](https://github.com/KyoriPowered/adventure) by Kyori

@@ -9,28 +9,32 @@ plugins {
     id("com.palantir.git-version") version "3.1.0"
     id("com.github.johnrengelman.shadow") version "8.1.1"
 }
-
+/*
 val versionDetails: Closure<VersionDetails> by extra
 fun projectVersion(): String = if (versionDetails().branchName == "ver/latest")
     valueOf(project.version) else format("%s (git/%s)", project.version, versionDetails().gitHash)
+*/
+
+val manualVersion = "1.3.3-PATCHED-3"
 
 project.group = project.parent?.group!!
 project.version = project.parent?.version!!
 
 java {
-    toolchain.languageVersion.set(JavaLanguageVersion.of(17))
+    toolchain.languageVersion.set(JavaLanguageVersion.of(21))
 }
 
 blossom {
-    replaceToken("{version}", projectVersion())
-    replaceToken("{gitBranch}", versionDetails().branchName)
-    replaceToken("{gitCommitHash}", versionDetails().gitHashFull)
+    replaceToken("{version}", manualVersion)
+    replaceToken("{gitBranch}", "fork")
+    replaceToken("{gitCommitHash}", "local-build")
 }
 
 repositories {
     mavenCentral()
-    maven("https://repo.mrstudios.pl/public/")
-    maven("https://repo.mrstudios.pl/third-party/")
+    //maven("https://repo.mrstudios.pl/public/")
+    maven { url = uri("https://jitpack.io") }
+    //maven("https://repo.mrstudios.pl/third-party/")
     maven("https://maven.enginehub.org/repo/")
     maven("https://repo.panda-lang.org/releases/")
     maven("https://repo.opencollab.dev/maven-releases/")
@@ -41,10 +45,10 @@ repositories {
 dependencies {
 
     implementation(project(":api"))
-
+    implementation(fileTree("../libs") { include("*.jar") })
     /* Minecraft */
-    compileOnly("com.destroystokyo.paper:paper-api:${project.parent?.property("minecraft.version")}")
-
+    //compileOnly("com.destroystokyo.paper:paper-api:${project.parent?.property("minecraft.version")}")
+    compileOnly("io.papermc.paper:paper-api:${project.parent?.property("minecraft.version")}")
     /* Lite Commands */
     implementation("dev.rollczi:litecommands-core:${project.parent?.property("litecommands.version")}")
     implementation("dev.rollczi:litecommands-bukkit:${project.parent?.property("litecommands.version")}")
@@ -53,10 +57,14 @@ dependencies {
     implementation("eu.okaeri:okaeri-configs-yaml-bukkit:${project.parent?.property("okaeri.configs.version")}")
     implementation("eu.okaeri:okaeri-configs-serdes-bukkit:${project.parent?.property("okaeri.configs.version")}")
 
-    /* Commons */
+    /* Commons
     implementation("pl.mrstudios.commons:commons-bukkit:${project.parent?.property("mrstudios.commons.version")}")
     implementation("pl.mrstudios.commons:commons-inject:${project.parent?.property("mrstudios.commons.version")}")
     implementation("pl.mrstudios.commons:commons-reflection:${project.parent?.property("mrstudios.commons.version")}")
+    */
+
+    /* Local Dependencies (Bypassing dead repo) */
+    implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar"))))
 
     /* Kyori Adventure */
     implementation("net.kyori:adventure-api:${project.parent?.property("kyori.adventure.version")}")
@@ -73,7 +81,7 @@ dependencies {
     implementation("net.lingala.zip4j:zip4j:${project.parent?.property("zip4j.version")}")
 
     /* Protocol Sidebar */
-    implementation("me.catcoder:bukkit-sidebar:${project.parent?.property("protocol.sidebar.version")}")
+    //implementation("me.catcoder:bukkit-sidebar:${project.parent?.property("protocol.sidebar.version")}")
 
     /* WorldEdit */
     compileOnly("com.sk89q.worldedit:worldedit-bukkit:${project.parent?.property("worldedit.version")}")
@@ -87,7 +95,7 @@ dependencies {
 tasks {
 
     processResources {
-        inputs.property("version", projectVersion())
+        inputs.property("version", manualVersion)
         expand(inputs.properties)
     }
 
@@ -105,11 +113,8 @@ tasks {
 
         exclude("META-INF/**")
         dependencies {
-            isEnableRelocation = true
-            relocationPrefix = "${project.parent?.group}.libraries"
+            isEnableRelocation = false
         }
-
-        relocate("pl.mrstudios.deathrun.api", "pl.mrstudios.deathrun.api")
 
     }
 
