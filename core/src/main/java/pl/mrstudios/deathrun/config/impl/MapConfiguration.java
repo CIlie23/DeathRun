@@ -54,13 +54,16 @@ public class MapConfiguration extends OkaeriConfig {
     public boolean arenaSetupEnabled = true;
 
     public List<MapDefinition> resolvedMaps() {
-        if (!this.maps.isEmpty())
+        if (!this.maps.isEmpty()) {
+            this.maps.forEach((map) -> {
+                if (map.id == null || map.id.isBlank())
+                    map.id = this.mapIdFor(map.name);
+            });
             return this.maps;
+        }
 
         MapDefinition legacyMap = new MapDefinition();
-        legacyMap.id = this.arenaName == null
-                ? "default"
-                : this.arenaName.toLowerCase(Locale.ROOT).replace(" ", "-");
+        legacyMap.id = this.mapIdFor(this.arenaName);
         legacyMap.name = this.arenaName;
         legacyMap.world = this.arenaWaitingLobbyLocation == null ? "" : this.arenaWaitingLobbyLocation.getWorld().getName();
         legacyMap.arenaWaitingLobbyLocation = this.arenaWaitingLobbyLocation;
@@ -76,10 +79,16 @@ public class MapConfiguration extends OkaeriConfig {
 
     public MapDefinition getMapById(String id) {
         return this.resolvedMaps().stream()
-                .filter((map) -> map.id != null)
-                .filter((map) -> map.id.equalsIgnoreCase(id))
+                .filter((map) -> this.mapIdFor(map.id).equalsIgnoreCase(this.mapIdFor(id)))
                 .findFirst()
                 .orElse(null);
+    }
+
+    private String mapIdFor(String source) {
+        if (source == null || source.isBlank())
+            return "default";
+
+        return source.toLowerCase(Locale.ROOT).replace(" ", "-");
     }
 
     @SuppressWarnings("deprecation")

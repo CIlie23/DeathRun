@@ -13,7 +13,9 @@ import pl.mrstudios.deathrun.api.arena.event.user.UserArenaCheckpointEvent;
 import pl.mrstudios.deathrun.api.arena.event.user.UserArenaFinishedEvent;
 import pl.mrstudios.deathrun.api.arena.user.IUser;
 import pl.mrstudios.deathrun.arena.Arena;
+import pl.mrstudios.deathrun.arena.ArenaManager;
 import pl.mrstudios.deathrun.config.Configuration;
+import pl.mrstudios.deathrun.config.impl.MapConfiguration;
 
 import java.util.Objects;
 
@@ -34,7 +36,7 @@ import static pl.mrstudios.deathrun.api.arena.user.enums.Role.SPECTATOR;
 
 public class ArenaCheckpointReachedListener implements Listener {
 
-    private final Arena arena;
+        private final ArenaManager arenaManager;
     private final Plugin plugin;
     private final Server server;
     private final BukkitAudiences audiences;
@@ -42,13 +44,13 @@ public class ArenaCheckpointReachedListener implements Listener {
 
     @Inject
     public ArenaCheckpointReachedListener(
-            @NotNull Arena arena,
+                        @NotNull ArenaManager arenaManager,
             @NotNull Plugin plugin,
             @NotNull Server server,
             @NotNull BukkitAudiences audiences,
             @NotNull Configuration configuration
     ) {
-        this.arena = arena;
+                this.arenaManager = arenaManager;
         this.plugin = plugin;
         this.server = server;
         this.audiences = audiences;
@@ -72,12 +74,16 @@ public class ArenaCheckpointReachedListener implements Listener {
                         && event.getFrom().getYaw() != event.getTo().getYaw()
         ) return;
 
-        this.configuration.map().arenaCheckpoints.stream()
+        Arena arena = this.arenaManager.arenaForPlayer(event.getPlayer());
+        MapConfiguration.MapDefinition map = this.arenaManager.mapForPlayer(event.getPlayer());
+        if (arena == null || map == null)
+            return;
+
+        map.arenaCheckpoints.stream()
                 .filter((checkpoint) -> checkpoint.locations().stream().anyMatch(
                         (location) -> location.getBlockX() == event.getTo().getBlockX() && location.getBlockY() == event.getTo().getBlockY() && location.getBlockZ() == event.getTo().getBlockZ()
                 )).findFirst()
-                .ifPresent(
-                        (checkpoint) -> ofNullable(this.arena.getUser(event.getPlayer()))
+                .ifPresent((checkpoint) -> ofNullable(arena.getUser(event.getPlayer()))
                                 .filter((user) -> user.getRole() == RUNNER)
                                 .filter((user) -> user.getCheckpoint().id() < checkpoint.id())
                                 .ifPresent((user) -> {
@@ -104,19 +110,19 @@ public class ArenaCheckpointReachedListener implements Listener {
                                     );
 
                                     event.getPlayer().playSound(event.getPlayer().getLocation(), this.configuration.plugin().arenaSoundCheckpointReached, 1, 1);
-                                    if (!checkpoint.id().equals(this.configuration.map().arenaCheckpoints.get(this.configuration.map().arenaCheckpoints.size() - 1).id()))
+                                                                        if (!checkpoint.id().equals(map.arenaCheckpoints.get(map.arenaCheckpoints.size() - 1).id()))
                                         return;
 
-                                    this.arena.setFinishedRuns(this.arena.getFinishedRuns() + 1);
+                                                                        arena.setFinishedRuns(arena.getFinishedRuns() + 1);
 
-                                    int position = this.arena.getFinishedRuns(), time = this.arena.getElapsedTime();
+                                                                        int position = arena.getFinishedRuns(), time = arena.getElapsedTime();
                                     this.server.getPluginManager().callEvent(
                                             new UserArenaFinishedEvent(user, time, position)
                                     );
 
                                     if (position == 1)
-                                        if (this.arena.getRemainingTime() >= 60)
-                                            this.arena.setRemainingTime(60);
+                                                                                if (arena.getRemainingTime() >= 60)
+                                                                                        arena.setRemainingTime(60);
 
                                     this.audiences.player(event.getPlayer()).showTitle(
                                             title(
@@ -135,8 +141,8 @@ public class ArenaCheckpointReachedListener implements Listener {
                                     );
 
                                     user.setRole(SPECTATOR);
-                                    event.getPlayer().teleport(this.configuration.map().arenaCheckpoints.get(0).spawn());
-                                    this.arena.getUsers().stream()
+                                    event.getPlayer().teleport(map.arenaCheckpoints.get(0).spawn());
+                                    arena.getUsers().stream()
                                             .map(IUser::asBukkit)
                                             .filter(Objects::nonNull)
                                             .forEach((target) -> this.audiences.player(target).sendMessage(miniMessage().deserialize(
@@ -152,7 +158,7 @@ public class ArenaCheckpointReachedListener implements Listener {
 
                                     event.getPlayer().setAllowFlight(true);
                                     event.getPlayer().setGameMode(ADVENTURE);
-                                    this.arena.getUsers()
+                                    arena.getUsers()
                                             .stream().map(IUser::asBukkit)
                                             .filter(Objects::nonNull).forEach(
                                                     (target) -> target.hidePlayer(this.plugin, event.getPlayer())

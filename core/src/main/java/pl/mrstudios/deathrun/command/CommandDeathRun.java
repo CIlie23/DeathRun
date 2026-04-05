@@ -21,6 +21,7 @@ import org.jetbrains.annotations.Nullable;
 import pl.mrstudios.commons.inject.annotation.Inject;
 import pl.mrstudios.deathrun.api.arena.trap.ITrap;
 import pl.mrstudios.deathrun.api.arena.user.enums.Role;
+import pl.mrstudios.deathrun.arena.ArenaManager;
 import pl.mrstudios.deathrun.arena.checkpoint.Checkpoint;
 import pl.mrstudios.deathrun.arena.pad.TeleportPad;
 import pl.mrstudios.deathrun.arena.selector.MapSelectorService;
@@ -60,6 +61,7 @@ public class CommandDeathRun {
     private final BukkitAudiences audiences;
 
     private final TrapRegistry  trapRegistry;
+    private final ArenaManager arenaManager;
     private final MapSelectorService mapSelectorService;
     private final Configuration configuration;
 
@@ -69,6 +71,7 @@ public class CommandDeathRun {
             @NotNull WorldEdit worldEdit,
             @NotNull BukkitAudiences audiences,
             @NotNull TrapRegistry trapRegistry,
+            @NotNull ArenaManager arenaManager,
             @NotNull MapSelectorService mapSelectorService,
             @NotNull Configuration configuration
     ) {
@@ -76,6 +79,7 @@ public class CommandDeathRun {
         this.worldEdit = worldEdit;
         this.audiences = audiences;
         this.trapRegistry = trapRegistry;
+        this.arenaManager = arenaManager;
         this.mapSelectorService = mapSelectorService;
         this.configuration = configuration;
     }
@@ -114,6 +118,7 @@ public class CommandDeathRun {
     public void leave(
             @Context Player player
     ) {
+        this.arenaManager.leaveCurrentMap(player, true);
         connect(this.plugin, player, this.configuration.plugin().server);
     }
 

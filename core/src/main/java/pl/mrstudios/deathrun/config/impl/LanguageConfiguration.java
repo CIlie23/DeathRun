@@ -96,8 +96,14 @@ public class LanguageConfiguration extends OkaeriConfig {
     public String mapSelectorStatusAvailable = "<green>Available";
     public String mapSelectorStatusDisabled = "<red>Disabled";
     public String mapSelectorStatusMissingLobby = "<gold>Missing lobby";
-    public String mapSelectorMapSelected = "<dark_green><b>*</b> <green>Selected map <dark_green><map><green>. Queue integration is next in Phase 2.";
+        public String mapSelectorStatusNotReady = "<gold>Not ready";
+        public String mapSelectorStatusInProgress = "<red>In progress";
+        public String mapSelectorMapSelected = "<dark_green><b>*</b> <green>Joined map <dark_green><map><green>.";
     public String mapSelectorMapUnavailable = "<dark_red><b>*</b> <red>This map is not available yet.";
+        public String mapSelectorMapNotReady = "<dark_red><b>*</b> <red>This map is not fully configured yet.";
+        public String mapSelectorMapFull = "<dark_red><b>*</b> <red>This map is full right now.";
+        public String mapSelectorMapInProgress = "<dark_red><b>*</b> <red>This match is already in progress.";
+        public String mapSelectorAlreadyJoined = "<gold><b>*</b> <yellow>You are already queued on this map.";
 
     public List<String> chatMessageArenaGameStartRunner = asList(
             "<reset>",
@@ -217,6 +223,7 @@ public class LanguageConfiguration extends OkaeriConfig {
             "------------------------------------------------------------------------",
             ""
     })
+        public String arenaItemMapSelectorName = "<yellow>Map Selector <gray>(Right Click)";
     public String arenaItemLeaveName = "<red>Leave <gray>(Right Click)";
 
 }

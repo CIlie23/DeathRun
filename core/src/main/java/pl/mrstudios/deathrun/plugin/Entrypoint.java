@@ -17,7 +17,7 @@ import pl.mrstudios.commons.inject.Injector;
 import pl.mrstudios.commons.inject.annotation.Inject;
 import pl.mrstudios.commons.reflection.Reflections;
 import pl.mrstudios.deathrun.arena.Arena;
-import pl.mrstudios.deathrun.arena.ArenaServiceRunnable;
+import pl.mrstudios.deathrun.arena.ArenaManager;
 import pl.mrstudios.deathrun.arena.selector.MapSelectorService;
 import pl.mrstudios.deathrun.arena.trap.TrapRegistry;
 import pl.mrstudios.deathrun.arena.trap.impl.*;
@@ -32,7 +32,6 @@ import pl.mrstudios.deathrun.config.impl.PluginConfiguration;
 import pl.mrstudios.deathrun.exception.MissingDependencyException;
 
 import java.io.File;
-import java.util.Objects;
 
 import static com.sk89q.worldedit.WorldEdit.getInstance;
 import static dev.rollczi.litecommands.annotations.LiteCommandsAnnotations.of;
@@ -50,7 +49,7 @@ import static pl.mrstudios.deathrun.api.API.createInstance;
 @SuppressWarnings("all")
 public class Entrypoint extends JavaPlugin {
 
-    private Arena arena;
+    private ArenaManager arenaManager;
     private TrapRegistry trapRegistry;
 
     private BukkitAudiences audiences;
@@ -83,8 +82,8 @@ public class Entrypoint extends JavaPlugin {
         /* Kyori */
         this.audiences = create(this);
 
-        /* Create Arena Instance */
-        this.arena = new Arena(this.configuration.map().arenaName);
+        /* Arena Manager */
+        this.arenaManager = new ArenaManager(this, this.getServer(), this.audiences, this.configuration);
 
         /* Trap Registry */
         this.trapRegistry = new TrapRegistry();
@@ -103,10 +102,12 @@ public class Entrypoint extends JavaPlugin {
                 .register(WorldEdit.class, this.worldEdit)
 
                 /* Plugin Stuff */
-                .register(Arena.class, this.arena)
+                .register(ArenaManager.class, this.arenaManager)
                 .register(TrapRegistry.class, this.trapRegistry)
-                .register(MapSelectorService.class, new MapSelectorService(this, this.configuration, this.audiences))
+                .register(MapSelectorService.class, new MapSelectorService(this, this.configuration, this.arenaManager, this.audiences))
                 .register(Configuration.class, this.configuration);
+
+            this.arenaManager.initialize();
 
         /* Register Traps */
         asList(
@@ -140,31 +141,20 @@ public class Entrypoint extends JavaPlugin {
                 .build();
 
         /* Register Listeners */
-        if (!this.configuration.map().arenaSetupEnabled)
-            new Reflections<Listener>("pl.mrstudios.deathrun.arena.listener")
-                    .getClassesImplementing(Listener.class).stream().filter(
-                            (listener) -> stream(listener.getConstructors())
-                                    .anyMatch((constructor) -> constructor.isAnnotationPresent(Inject.class))
-                    ).forEach(
-                            (listener) -> this.getServer().getPluginManager()
-                                    .registerEvents(this.injector.inject(listener), this)
-                    );
-
-        /* Start Arena Service */
-        if (!this.configuration.map().arenaSetupEnabled)
-            this.injector.inject(ArenaServiceRunnable.class)
-                    .runTaskTimer(this, 0, 20);
+        new Reflections<Listener>("pl.mrstudios.deathrun.arena.listener")
+            .getClassesImplementing(Listener.class).stream().filter(
+                (listener) -> stream(listener.getConstructors())
+                    .anyMatch((constructor) -> constructor.isAnnotationPresent(Inject.class))
+            ).forEach(
+                (listener) -> this.getServer().getPluginManager()
+                    .registerEvents(this.injector.inject(listener), this)
+            );
 
         /* Initialize API */
-        createInstance(this.arena, this.trapRegistry);
-
-        /* Set Max Players */
-        if (!this.configuration.map().arenaSetupEnabled)
-            this.getServer().setMaxPlayers(this.configuration.map().arenaRunnerSpawnLocations.size() + this.configuration.map().arenaDeathSpawnLocations.size());
+        createInstance(java.util.Objects.requireNonNullElseGet(this.arenaManager.primaryArena(), () -> new Arena("default")), this.trapRegistry);
 
         /* Register Channel */
-        if (!this.configuration.map().arenaSetupEnabled)
-            this.getServer().getMessenger().registerOutgoingPluginChannel(this, "BungeeCord");
+        this.getServer().getMessenger().registerOutgoingPluginChannel(this, "BungeeCord");
 
         /* Check Branch */
         if (!apiInstance().pluginGitBranch().equals("ver/latest"))

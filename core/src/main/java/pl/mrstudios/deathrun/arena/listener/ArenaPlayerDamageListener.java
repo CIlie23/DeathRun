@@ -15,6 +15,7 @@ import pl.mrstudios.commons.inject.annotation.Inject;
 import pl.mrstudios.deathrun.api.arena.event.user.UserArenaDeathEvent;
 import pl.mrstudios.deathrun.api.arena.user.IUser;
 import pl.mrstudios.deathrun.arena.Arena;
+import pl.mrstudios.deathrun.arena.ArenaManager;
 import pl.mrstudios.deathrun.config.Configuration;
 
 import static java.time.Duration.ofMillis;
@@ -33,19 +34,19 @@ import static pl.mrstudios.deathrun.api.arena.user.enums.Role.RUNNER;
 
 public class ArenaPlayerDamageListener implements Listener {
 
-    private final Arena arena;
+    private final ArenaManager arenaManager;
     private final Server server;
     private final BukkitAudiences audiences;
     private final Configuration configuration;
 
     @Inject
     public ArenaPlayerDamageListener(
-            @NotNull Arena arena,
+            @NotNull ArenaManager arenaManager,
             @NotNull Server server,
             @NotNull BukkitAudiences audiences,
             @NotNull Configuration configuration
     ) {
-        this.arena = arena;
+        this.arenaManager = arenaManager;
         this.server = server;
         this.audiences = audiences;
         this.configuration = configuration;
@@ -68,15 +69,21 @@ public class ArenaPlayerDamageListener implements Listener {
         if (event.getCause() == ENTITY_ATTACK || event.getCause() == ENTITY_SWEEP_ATTACK)
             event.setCancelled(true);
 
-        if (this.arena.getGameState() != PLAYING)
+        Arena arena = this.arenaManager.arenaForPlayer(player);
+        if (arena == null) {
+            event.setCancelled(true);
+            return;
+        }
+
+        if (arena.getGameState() != PLAYING)
             event.setCancelled(true);
 
         if (event.isCancelled())
             return;
 
-        ofNullable(this.arena.getUser(player))
-                .filter((user) -> user.getRole() == RUNNER)
-                .ifPresent((user) -> this.callPlayerDeath(user, player));
+        ofNullable(arena.getUser(player))
+            .filter((user) -> user.getRole() == RUNNER)
+            .ifPresent((user) -> this.callPlayerDeath(user, player, arena));
         event.setCancelled(true);
 
     }
@@ -94,15 +101,16 @@ public class ArenaPlayerDamageListener implements Listener {
                         && event.getFrom().getYaw() != event.getTo().getYaw()
         ) return;
 
-        if (this.arena.getGameState() != PLAYING)
+        Arena arena = this.arenaManager.arenaForPlayer(event.getPlayer());
+        if (arena == null || arena.getGameState() != PLAYING)
             return;
 
         if (event.getTo().getBlock().getType() != WATER && event.getTo().getBlock().getType() != LAVA)
             return;
 
-        ofNullable(this.arena.getUser(event.getPlayer()))
+        ofNullable(arena.getUser(event.getPlayer()))
                 .filter((user) -> user.getRole() == RUNNER)
-                .ifPresent((user) -> this.callPlayerDeath(user, event.getPlayer()));
+            .ifPresent((user) -> this.callPlayerDeath(user, event.getPlayer(), arena));
 
     }
 
@@ -111,11 +119,12 @@ public class ArenaPlayerDamageListener implements Listener {
             @NotNull EntityExplodeEvent event
     ) {
 
-        if (this.arena.getGameState() != PLAYING)
-            return;
-
         event.getLocation().getNearbyEntitiesByType(Player.class, 3f)
-                .forEach((player) -> player.damage(1));
+                .forEach((player) -> {
+                    Arena arena = this.arenaManager.arenaForPlayer(player);
+                    if (arena != null && arena.getGameState() == PLAYING)
+                        player.damage(1);
+                });
 
     }
 
@@ -128,7 +137,8 @@ public class ArenaPlayerDamageListener implements Listener {
 
     protected void callPlayerDeath(
             @NotNull IUser user,
-            @NotNull Player player
+            @NotNull Player player,
+            @NotNull Arena arena
     ) {
 
         user.setDeaths(user.getDeaths() + 1);
@@ -137,7 +147,7 @@ public class ArenaPlayerDamageListener implements Listener {
         player.addPotionEffect(FIRE_RESISTANCE_EFFECT);
         player.setFireTicks(0);
 
-        this.server.getPluginManager().callEvent(new UserArenaDeathEvent(user, this.arena));
+        this.server.getPluginManager().callEvent(new UserArenaDeathEvent(user, arena));
         this.audiences.player(player).showTitle(
                 title(
                         miniMessage().deserialize(this.configuration.language().arenaDeathTitle),

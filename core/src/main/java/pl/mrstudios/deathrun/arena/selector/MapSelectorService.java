@@ -13,6 +13,8 @@ import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import pl.mrstudios.deathrun.api.arena.enums.GameState;
+import pl.mrstudios.deathrun.arena.ArenaManager;
 import pl.mrstudios.deathrun.config.Configuration;
 import pl.mrstudios.deathrun.config.impl.MapConfiguration;
 
@@ -27,16 +29,19 @@ public class MapSelectorService {
 
     private final Plugin plugin;
     private final Configuration configuration;
+    private final ArenaManager arenaManager;
     private final BukkitAudiences audiences;
     private final NamespacedKey mapIdKey;
 
     public MapSelectorService(
             @NotNull Plugin plugin,
             @NotNull Configuration configuration,
+            @NotNull ArenaManager arenaManager,
             @NotNull BukkitAudiences audiences
     ) {
         this.plugin = plugin;
         this.configuration = configuration;
+        this.arenaManager = arenaManager;
         this.audiences = audiences;
         this.mapIdKey = new NamespacedKey(plugin, "selector-map-id");
     }
@@ -78,41 +83,41 @@ public class MapSelectorService {
             return;
 
         MapConfiguration.MapDefinition map = this.configuration.map().getMapById(mapId);
-        if (map == null || !this.isMapJoinable(map)) {
+        if (map == null) {
             this.audiences.player(player).sendMessage(miniMessage().deserialize(this.configuration.language().mapSelectorMapUnavailable));
             return;
         }
 
-        if (map.arenaWaitingLobbyLocation != null)
-            player.teleport(map.arenaWaitingLobbyLocation);
+        ArenaManager.JoinResult result = this.arenaManager.joinMap(player, mapId);
+        switch (result) {
+            case JOINED -> this.audiences.player(player).sendMessage(miniMessage().deserialize(
+                    this.configuration.language().mapSelectorMapSelected.replace("<map>", this.mapName(map))
+            ));
 
-        this.audiences.player(player).sendMessage(miniMessage().deserialize(
-                this.configuration.language().mapSelectorMapSelected.replace("<map>", map.name)
-        ));
-    }
+            case ALREADY_IN_MAP -> this.audiences.player(player).sendMessage(miniMessage().deserialize(this.configuration.language().mapSelectorAlreadyJoined));
+            case MAP_NOT_READY -> this.audiences.player(player).sendMessage(miniMessage().deserialize(this.configuration.language().mapSelectorMapNotReady));
+            case MAP_FULL -> this.audiences.player(player).sendMessage(miniMessage().deserialize(this.configuration.language().mapSelectorMapFull));
+            case MATCH_IN_PROGRESS -> this.audiences.player(player).sendMessage(miniMessage().deserialize(this.configuration.language().mapSelectorMapInProgress));
+            default -> this.audiences.player(player).sendMessage(miniMessage().deserialize(this.configuration.language().mapSelectorMapUnavailable));
+        }
 
-    private boolean isMapJoinable(
-            @NotNull MapConfiguration.MapDefinition map
-    ) {
-        return !map.arenaSetupEnabled && map.arenaWaitingLobbyLocation != null;
+        player.closeInventory();
     }
 
     private int currentPlayersForMap(
             @NotNull MapConfiguration.MapDefinition map
     ) {
-        if (map.world == null || map.world.isBlank())
+        String mapId = map.id;
+        if (mapId == null || mapId.isBlank())
             return 0;
 
-        if (Bukkit.getWorld(map.world) == null)
-            return 0;
-
-        return Bukkit.getWorld(map.world).getPlayers().size();
+        return this.arenaManager.playersInMap(mapId);
     }
 
     private int maxPlayersForMap(
             @NotNull MapConfiguration.MapDefinition map
     ) {
-        return map.arenaRunnerSpawnLocations.size() + map.arenaDeathSpawnLocations.size();
+        return this.arenaManager.maxPlayers(map);
     }
 
     private @NotNull ItemStack mapItem(
@@ -158,6 +163,13 @@ public class MapSelectorService {
         if (map.arenaWaitingLobbyLocation == null)
             return this.configuration.language().mapSelectorStatusMissingLobby;
 
+        if (!this.arenaManager.isMapConfigured(map))
+            return this.configuration.language().mapSelectorStatusNotReady;
+
+        ArenaManager.ArenaRuntime runtime = map.id == null ? null : this.arenaManager.runtimeByMapId(map.id);
+        if (runtime != null && (runtime.arena().getGameState() == GameState.PLAYING || runtime.arena().getGameState() == GameState.ENDING))
+            return this.configuration.language().mapSelectorStatusInProgress;
+
         return this.configuration.language().mapSelectorStatusAvailable;
     }
 
@@ -167,10 +179,20 @@ public class MapSelectorService {
         if (map.arenaSetupEnabled)
             return Material.BARRIER;
 
-        if (map.arenaWaitingLobbyLocation == null)
+        if (map.arenaWaitingLobbyLocation == null || !this.arenaManager.isMapConfigured(map))
             return Material.YELLOW_CONCRETE;
 
+        ArenaManager.ArenaRuntime runtime = map.id == null ? null : this.arenaManager.runtimeByMapId(map.id);
+        if (runtime != null && (runtime.arena().getGameState() == GameState.PLAYING || runtime.arena().getGameState() == GameState.ENDING))
+            return Material.RED_CONCRETE;
+
         return Material.LIME_CONCRETE;
+    }
+
+    private @NotNull String mapName(
+            @NotNull MapConfiguration.MapDefinition map
+    ) {
+        return map.name == null || map.name.isBlank() ? "Unnamed" : map.name;
     }
 
 }

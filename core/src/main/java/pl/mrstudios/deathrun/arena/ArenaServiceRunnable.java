@@ -20,6 +20,7 @@ import pl.mrstudios.deathrun.api.arena.event.user.UserArenaRoleAssignedEvent;
 import pl.mrstudios.deathrun.api.arena.user.IUser;
 import pl.mrstudios.deathrun.api.arena.user.enums.Role;
 import pl.mrstudios.deathrun.config.Configuration;
+import pl.mrstudios.deathrun.config.impl.MapConfiguration;
 
 import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
@@ -41,11 +42,12 @@ import static org.bukkit.inventory.ItemFlag.values;
 import static pl.mrstudios.deathrun.api.arena.enums.GameState.*;
 import static pl.mrstudios.deathrun.api.arena.user.enums.Role.DEATH;
 import static pl.mrstudios.deathrun.api.arena.user.enums.Role.RUNNER;
-import static pl.mrstudios.deathrun.util.ChannelUtil.connect;
+import static pl.mrstudios.deathrun.api.arena.user.enums.Role.UNKNOWN;
 
 public class ArenaServiceRunnable extends BukkitRunnable {
 
     private final Arena arena;
+        private final MapConfiguration.MapDefinition map;
     private final Plugin plugin;
     private final Server server;
     private final BukkitAudiences audiences;
@@ -56,6 +58,7 @@ public class ArenaServiceRunnable extends BukkitRunnable {
     @Inject
     public ArenaServiceRunnable(
             @NotNull Arena arena,
+            @NotNull MapConfiguration.MapDefinition map,
             @NotNull Plugin plugin,
             @NotNull Server server,
             @NotNull BukkitAudiences audiences,
@@ -63,16 +66,14 @@ public class ArenaServiceRunnable extends BukkitRunnable {
     ) {
 
         this.arena = arena;
+        this.map = map;
         this.server = server;
         this.plugin = plugin;
         this.audiences = audiences;
         this.configuration = configuration;
         this.setState(WAITING);
 
-        this.barrierTimer = configuration.plugin().arenaStartingTime;
-        this.arena.setRemainingTime(configuration.plugin().arenaGameTime);
-        this.startingTimer = configuration.plugin().arenaPreStartingTime + 1;
-        this.endDelayTimer = this.configuration.plugin().arenaEndDelay + 5;
+        this.resetRoundState();
 
     }
 
@@ -106,7 +107,28 @@ public class ArenaServiceRunnable extends BukkitRunnable {
     }
 
     protected void stateSwitchToWaiting() {
-        this.startingTimer = this.configuration.plugin().arenaPreStartingTime + 1;
+                this.resetRoundState();
+                this.map.arenaStartBarrierBlocks
+                                .stream()
+                                .map(Location::getBlock)
+                                .filter((block) -> block.getType() == AIR)
+                                .forEach((block) -> block.setType(org.bukkit.Material.BARRIER));
+
+                this.arena.getUsers().stream()
+                                .map(IUser::asBukkit)
+                                .filter(Objects::nonNull)
+                                .forEach((player) -> {
+                                        player.getInventory().clear();
+                                        player.setAllowFlight(false);
+                                        player.teleport(this.map.arenaWaitingLobbyLocation);
+                                });
+
+                this.arena.getUsers().forEach((user) -> {
+                        user.setDeaths(0);
+                        user.setRole(UNKNOWN);
+                        if (!this.map.arenaCheckpoints.isEmpty())
+                                user.setCheckpoint(this.map.arenaCheckpoints.get(0));
+                });
     }
 
     /* Starting */
@@ -182,7 +204,7 @@ public class ArenaServiceRunnable extends BukkitRunnable {
 
             if (this.barrierTimer == 0) {
 
-                this.configuration.map().arenaStartBarrierBlocks
+                this.map.arenaStartBarrierBlocks
                         .stream()
                         .map(Location::getBlock)
                         .forEach((block) -> block.setType(AIR));
@@ -220,11 +242,11 @@ public class ArenaServiceRunnable extends BukkitRunnable {
 
         range(0, this.arena.getRunners().size())
                 .filter((i) -> this.arena.getRunners().get(i).asBukkit() != null)
-                .forEach((i) -> requireNonNull(this.arena.getRunners().get(i).asBukkit()).teleport(this.configuration.map().arenaRunnerSpawnLocations.get(i)));
+                .forEach((i) -> requireNonNull(this.arena.getRunners().get(i).asBukkit()).teleport(this.map.arenaRunnerSpawnLocations.get(i % this.map.arenaRunnerSpawnLocations.size())));
 
         range(0, this.arena.getDeaths().size())
                 .filter((i) -> this.arena.getDeaths().get(i).asBukkit() != null)
-                .forEach((i) -> requireNonNull(this.arena.getDeaths().get(i).asBukkit()).teleport(this.configuration.map().arenaDeathSpawnLocations.get(i)));
+                .forEach((i) -> requireNonNull(this.arena.getDeaths().get(i).asBukkit()).teleport(this.map.arenaDeathSpawnLocations.get(i % this.map.arenaDeathSpawnLocations.size())));
 
         this.arena.getUsers()
                 .forEach((user) -> {
@@ -243,7 +265,8 @@ public class ArenaServiceRunnable extends BukkitRunnable {
                                 .map(miniMessage()::deserialize)
                                 .forEach((component) -> this.audiences.player(player).sendMessage(component));
 
-                    user.setCheckpoint(this.configuration.map().arenaCheckpoints.get(0));
+                                        if (!this.map.arenaCheckpoints.isEmpty())
+                                                user.setCheckpoint(this.map.arenaCheckpoints.get(0));
                     if (user.getRole() == DEATH)
                         player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, this.configuration.plugin().arenaDeathSpeedAmplifier, false, false, false));
 
@@ -296,21 +319,9 @@ public class ArenaServiceRunnable extends BukkitRunnable {
         if (this.endDelayTimer > 0)
             return;
 
-        ArenaShutdownStartedEvent event = new ArenaShutdownStartedEvent(this.arena, true);
+                ArenaShutdownStartedEvent event = new ArenaShutdownStartedEvent(this.arena, false);
         this.server.getPluginManager().callEvent(event);
-
-        if (!event.isDefaultProcedure())
-            return;
-
-        this.arena.getUsers()
-                .stream().map(IUser::asBukkit)
-                .filter(Objects::nonNull)
-                .forEach((player) -> connect(this.plugin, player, this.configuration.plugin().server));
-
-        if (this.endDelayTimer > -5)
-            return;
-
-        this.server.shutdown();
+                this.setState(WAITING);
 
     }
 
@@ -398,10 +409,10 @@ public class ArenaServiceRunnable extends BukkitRunnable {
                             ofNullable(this.arena.getUser(player))
                                     .ifPresentOrElse(
                                             (user) -> component.set(miniMessage().deserialize(
-                                                    content.replace("<map>", this.configuration.map().arenaName)
+                                                    content.replace("<map>", this.map.name)
                                                             .replace("<role>", this.rolePrefix(user.getRole()))
                                                             .replace("<currentPlayers>", valueOf(this.arena.getUsers().size()))
-                                                            .replace("<maxPlayers>", valueOf(this.configuration.map().arenaRunnerSpawnLocations.size() + this.configuration.map().arenaDeathSpawnLocations.size()))
+                                                            .replace("<maxPlayers>", valueOf(this.map.arenaRunnerSpawnLocations.size() + this.map.arenaDeathSpawnLocations.size()))
                                                             .replace("<timer>", valueOf(this.startingTimer))
                                                             .replace("<time>", valueOf(this.arena.getRemainingTime()))
                                                             .replace("<timeFormatted>", this.formatTime(this.arena.getRemainingTime()))
@@ -443,5 +454,14 @@ public class ArenaServiceRunnable extends BukkitRunnable {
 
     /* Constants */
     protected static final int[] messageTimes = new int[] { 1, 2, 3, 4, 5, 10, 15, 30, 60, 90, 180, 360 };
+
+        private void resetRoundState() {
+                this.barrierTimer = this.configuration.plugin().arenaStartingTime;
+                this.arena.setRemainingTime(this.configuration.plugin().arenaGameTime);
+                this.startingTimer = this.configuration.plugin().arenaPreStartingTime + 1;
+                this.endDelayTimer = this.configuration.plugin().arenaEndDelay + 5;
+                this.arena.setElapsedTime(0);
+                this.arena.setFinishedRuns(0);
+        }
 
 }

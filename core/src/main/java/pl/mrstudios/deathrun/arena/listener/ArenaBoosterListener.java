@@ -13,6 +13,7 @@ import pl.mrstudios.deathrun.api.arena.booster.IBooster;
 import pl.mrstudios.deathrun.api.arena.event.user.UserArenaUseBoosterEvent;
 import pl.mrstudios.deathrun.api.arena.user.IUser;
 import pl.mrstudios.deathrun.arena.Arena;
+import pl.mrstudios.deathrun.arena.ArenaManager;
 import pl.mrstudios.deathrun.config.Configuration;
 
 import java.util.HashMap;
@@ -31,7 +32,7 @@ import static pl.mrstudios.deathrun.api.arena.enums.GameState.PLAYING;
 
 public class ArenaBoosterListener implements Listener {
 
-    private final Arena arena;
+    private final ArenaManager arenaManager;
     private final Plugin plugin;
     private final Server server;
     private final Configuration configuration;
@@ -40,12 +41,12 @@ public class ArenaBoosterListener implements Listener {
 
     @Inject
     public ArenaBoosterListener(
-            @NotNull Arena arena,
+            @NotNull ArenaManager arenaManager,
             @NotNull Plugin plugin,
             @NotNull Server server,
             @NotNull Configuration configuration
     ) {
-        this.arena = arena;
+        this.arenaManager = arenaManager;
         this.plugin = plugin;
         this.server = server;
         this.configuration = configuration;
@@ -66,7 +67,11 @@ public class ArenaBoosterListener implements Listener {
                 .filter((booster) -> booster.slot() == event.getPlayer().getInventory().getHeldItemSlot())
                 .findFirst().ifPresent((booster) -> {
 
-                    IUser user = this.arena.getUser(event.getPlayer());
+                    Arena arena = this.arenaManager.arenaForPlayer(event.getPlayer());
+                    if (arena == null)
+                        return;
+
+                    IUser user = arena.getUser(event.getPlayer());
 
                     if (user == null)
                         return;
@@ -92,7 +97,7 @@ public class ArenaBoosterListener implements Listener {
                     taskId.set(
                             this.server.getScheduler().scheduleSyncRepeatingTask(this.plugin, () -> {
 
-                                if (this.arena.getGameState() != PLAYING) {
+                                if (arena.getGameState() != PLAYING) {
 
                                     this.configuration.plugin().boosters
                                             .forEach((object) -> event.getPlayer().getInventory().setItem(object.slot(), null));

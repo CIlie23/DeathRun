@@ -6,7 +6,8 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.jetbrains.annotations.NotNull;
 import pl.mrstudios.commons.inject.annotation.Inject;
-import pl.mrstudios.deathrun.config.Configuration;
+import pl.mrstudios.deathrun.arena.ArenaManager;
+import pl.mrstudios.deathrun.config.impl.MapConfiguration;
 
 import static java.util.Arrays.stream;
 import static org.bukkit.Material.*;
@@ -15,13 +16,13 @@ import static org.bukkit.event.block.Action.PHYSICAL;
 
 public class ArenaTeleportPadListener implements Listener {
 
-    private final Configuration configuration;
+    private final ArenaManager arenaManager;
 
     @Inject
     public ArenaTeleportPadListener(
-            @NotNull Configuration configuration
+            @NotNull ArenaManager arenaManager
     ) {
-        this.configuration = configuration;
+        this.arenaManager = arenaManager;
     }
 
     @EventHandler(priority = MONITOR)
@@ -38,7 +39,11 @@ public class ArenaTeleportPadListener implements Listener {
         if (stream(pressurePlates).noneMatch((material) -> material == event.getClickedBlock().getType()))
             return;
 
-        this.configuration.map().teleportPads
+        MapConfiguration.MapDefinition map = this.arenaManager.mapForPlayer(event.getPlayer());
+        if (map == null)
+            return;
+
+        map.teleportPads
                 .stream().filter(
                         (teleportPad) -> teleportPad.padLocation().getBlockX() == event.getClickedBlock().getX()
                                 && teleportPad.padLocation().getBlockY() == event.getClickedBlock().getY()
