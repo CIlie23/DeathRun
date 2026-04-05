@@ -54,6 +54,7 @@ public class LanguageConfiguration extends OkaeriConfig {
             "<reset> <b>*</b> <white>/deathrun join lobby",
             "<reset> <b>*</b> <white>/deathrun start (map)",
             "<reset> <b>*</b> <white>/deathrun stop (map)",
+            "<reset> <b>*</b> <white>/deathrun reload",
             "<reset> <b>*</b> <white>/deathrun maps",
             "<reset> <b>*</b> <white>/deathrun leave",
             "<reset> <b>*</b> <white>/deathrun setup",
@@ -86,14 +87,16 @@ public class LanguageConfiguration extends OkaeriConfig {
             "<reset>"
     );
     public String commandMessageSetupDisabled = "<dark_red><b>*</b> <red>You can't use that command while setup is disabled.";
-    public String commandMessageCheckpointAdded = "<reset> <dark_green><b>*</b> <green>Arena checkpoint has been added.";
+        public String commandMessageCheckpointAdded = "<reset> <dark_green><b>*</b> <green>Checkpoint <dark_green>#<checkpoint><green> added for map <dark_green><map><green>.";
+        public String commandMessageCheckpointAreaInfo = "<reset> <gray>Checkpoint area size: <white><blocks> blocks<gray>.";
+        public String commandMessageCheckpointAreaEmpty = "<reset> <dark_red><b>*</b> <red>Checkpoint area is empty. Select a WorldEdit region first.";
     public String commandMessageRoleInvalid = "<reset> <dark_red><b>*</b> <red>You must select <dark_red>RUNNER <red>or <dark_red>DEATH <red>role.";
     public String commandMessageRoleSpawnAdded = "<reset> <dark_green><b>*</b> <green>Added <dark_green><role> <green>role spawn.";
     public String commandMessageArenaNameSet = "<reset> <dark_green><b>*</b> <green>Arena name has been set to <dark_green><name><green>.";
     public String commandMessageStartBarrierSet = "<reset> <dark_green><b>*</b> <green>Arena start barrier has been set.";
     public String commandMessageWaitingLobbySet = "<reset> <dark_green><b>*</b> <green>Arena waiting lobby has been set.";
     public String commandMessageTeleportPadAdded = "<reset> <dark_green><b>*</b> <green>Added arena teleport pad.";
-    public String commandMessageSaveSuccess = "<reset> <dark_green><b>*</b> <green>Arena configuration saved successfully, please restart server to apply changes.";
+        public String commandMessageSaveSuccess = "<reset> <dark_green><b>*</b> <green>Arena configuration saved successfully.";
     public String commandMessageTrapLookAtButton = "<reset> <dark_red><b>*</b> <red>You must look at button that is activating trap.";
     public String commandMessageTrapNotExists = "<reset> <dark_red><b>*</b> <red>Trap <dark_red><type> <red>is not exists.";
     public String commandMessageTrapAdded = "<reset> <dark_green><b>*</b> <green>Added trap <dark_green><type> <green>to arena.";
@@ -107,6 +110,8 @@ public class LanguageConfiguration extends OkaeriConfig {
                 public String commandMessageStopMapUnavailable = "<dark_red><b>*</b> <red>Map <dark_red><map> <red>is not available.";
                 public String commandMessageStopAlreadyWaiting = "<gold><b>*</b> <yellow>Map <gold><map> <yellow>is already in waiting state.";
                 public String commandMessageStopNoCurrentMap = "<dark_red><b>*</b> <red>You are not queued in any map. Use <white>/deathrun stop <map><red>.";
+                public String commandMessageReloadSuccess = "<dark_green><b>*</b> <green>DeathRun configuration and runtimes reloaded.";
+                public String commandMessageReloadFailed = "<dark_red><b>*</b> <red>Reload failed: <dark_red><reason>";
                 public String commandMessageJoinForcedActor = "<dark_green><b>*</b> <green>Executed join for <dark_green><player><green> on map <dark_green><map><green>.";
                 public String commandMessageJoinForcedLobbyActor = "<dark_green><b>*</b> <green>Sent <dark_green><player> <green>to lobby.";
         public String commandMessageSetupMapSelected = "<reset> <dark_green><b>*</b> <green>Selected setup map <dark_green><map><green>.";
@@ -224,6 +229,8 @@ public class LanguageConfiguration extends OkaeriConfig {
             "------------------------------------------------------------------------",
             ""
     })
+    public boolean arenaScoreboardEnabled = true;
+    public int arenaScoreboardUpdateTicks = 20;
     public String arenaScoreboardTitle = "<yellow><b>DEATH RUN";
 
     public List<String> arenaScoreboardLinesWaiting = asList(

@@ -1,10 +1,13 @@
 package pl.mrstudios.deathrun.arena.listener;
 
 import org.bukkit.Server;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 import pl.mrstudios.commons.bukkit.item.ItemBuilder;
@@ -26,7 +29,8 @@ import static java.lang.System.currentTimeMillis;
 import static java.util.Objects.requireNonNull;
 import static net.kyori.adventure.text.minimessage.MiniMessage.miniMessage;
 import static org.bukkit.event.EventPriority.MONITOR;
-import static org.bukkit.event.block.Action.PHYSICAL;
+import static org.bukkit.event.block.Action.RIGHT_CLICK_AIR;
+import static org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK;
 import static org.bukkit.inventory.ItemFlag.values;
 import static pl.mrstudios.deathrun.api.arena.enums.GameState.PLAYING;
 
@@ -57,13 +61,24 @@ public class ArenaBoosterListener implements Listener {
             @NotNull PlayerInteractEvent event
     ) {
 
-        if (event.getAction() == PHYSICAL)
+        if (event.getAction() != RIGHT_CLICK_AIR && event.getAction() != RIGHT_CLICK_BLOCK)
             return;
+
+        ItemStack usedItem = this.resolveUsedItem(event);
+        if (usedItem == null || usedItem.getType() == Material.AIR)
+            return;
+
+        if (event.getHand() == EquipmentSlot.OFF_HAND) {
+            ItemStack mainHand = event.getPlayer().getInventory().getItemInMainHand();
+            if (mainHand != null && mainHand.getType() != Material.AIR)
+                return;
+        }
+
+        Material usedType = usedItem.getType();
 
         this.configuration.plugin().boosters
                 .stream()
-                .filter((booster) -> event.getPlayer().getInventory().getItem(booster.slot()) != null)
-                .filter((booster) -> requireNonNull(event.getPlayer().getInventory().getItem(booster.slot())).getType() == booster.item().material())
+                .filter((booster) -> booster.item().material() == usedType)
                 .filter((booster) -> booster.slot() == event.getPlayer().getInventory().getHeldItemSlot())
                 .findFirst().ifPresent((booster) -> {
 
@@ -71,10 +86,15 @@ public class ArenaBoosterListener implements Listener {
                     if (arena == null)
                         return;
 
+                    if (arena.getGameState() != PLAYING)
+                        return;
+
                     IUser user = arena.getUser(event.getPlayer());
 
                     if (user == null)
                         return;
+
+                    event.setCancelled(true);
 
                     if (!this.delay.containsKey(event.getPlayer().getName()))
                         this.delay.put(event.getPlayer().getName(), new HashMap<>());
@@ -139,6 +159,18 @@ public class ArenaBoosterListener implements Listener {
 
                 });
 
+    }
+
+    private ItemStack resolveUsedItem(
+            @NotNull PlayerInteractEvent event
+    ) {
+        if (event.getItem() != null)
+            return event.getItem();
+
+        if (event.getHand() == EquipmentSlot.OFF_HAND)
+            return event.getPlayer().getInventory().getItemInOffHand();
+
+        return event.getPlayer().getInventory().getItemInMainHand();
     }
 
     protected void boost(

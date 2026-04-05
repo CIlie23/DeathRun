@@ -36,12 +36,12 @@ public class InvalidCommandUsageHandler implements InvalidUsageHandler<CommandSe
 
     private @NotNull String usageFor(@NotNull Invocation<CommandSender> invocation) {
         if (invocation.arguments().asList().isEmpty()) {
-            return "<red>Invalid usage. <gray>Try: <white>/deathrun <dark_gray>| <white>/deathrun join <map> <dark_gray>| <white>/deathrun start (map) <dark_gray>| <white>/deathrun stop (map) <dark_gray>| <white>/deathrun leave <dark_gray>| <white>/deathrun setup";
+            return "<red>Invalid usage. <gray>Try: <white>/deathrun <dark_gray>| <white>/deathrun join <map> <dark_gray>| <white>/deathrun start (map) <dark_gray>| <white>/deathrun stop (map) <dark_gray>| <white>/deathrun reload <dark_gray>| <white>/deathrun leave <dark_gray>| <white>/deathrun setup";
         }
 
         String first = invocation.arguments().asList().get(0).toLowerCase();
         if (!"setup".equals(first)) {
-            return "<red>Unknown subcommand. <gray>Use <white>/deathrun join <map><gray>, <white>/deathrun start (map)<gray>, <white>/deathrun stop (map)<gray>, <white>/deathrun leave <gray>or <white>/deathrun setup";
+            return "<red>Unknown subcommand. <gray>Use <white>/deathrun join <map><gray>, <white>/deathrun start (map)<gray>, <white>/deathrun stop (map)<gray>, <white>/deathrun reload<gray>, <white>/deathrun leave <gray>or <white>/deathrun setup";
         }
 
         if (invocation.arguments().asList().size() == 1) {

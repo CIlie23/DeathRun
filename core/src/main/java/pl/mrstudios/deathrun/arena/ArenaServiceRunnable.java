@@ -22,10 +22,14 @@ import pl.mrstudios.deathrun.api.arena.user.enums.Role;
 import pl.mrstudios.deathrun.config.Configuration;
 import pl.mrstudios.deathrun.config.impl.MapConfiguration;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static java.lang.String.valueOf;
 import static java.time.Duration.ofMillis;
 import static java.util.Arrays.stream;
@@ -54,6 +58,8 @@ public class ArenaServiceRunnable extends BukkitRunnable {
     private final Configuration configuration;
 
     private BukkitTask sidebarTask;
+        private BukkitTask backgroundSongTask;
+        private int backgroundSongIndex;
         private boolean forceStartRequested;
 
     @Inject
@@ -107,7 +113,7 @@ public class ArenaServiceRunnable extends BukkitRunnable {
                         return;
                 }
 
-                if (this.arena.getUsers().size() >= this.configuration.plugin().arenaMinPlayers)
+                                if (this.arena.getUsers().size() >= this.requiredPlayersToStart())
             this.setState(STARTING);
 
     }
@@ -150,7 +156,7 @@ public class ArenaServiceRunnable extends BukkitRunnable {
                         return;
                 }
 
-                if (!this.forceStartRequested && this.arena.getUsers().size() < this.configuration.plugin().arenaMinPlayers) {
+                                if (!this.forceStartRequested && this.arena.getUsers().size() < this.requiredPlayersToStart()) {
             this.setState(WAITING);
             return;
         }
@@ -191,6 +197,11 @@ public class ArenaServiceRunnable extends BukkitRunnable {
     private int barrierTimer;
 
     protected void playing() {
+
+                if (this.arena.getRunners().isEmpty()) {
+                        this.setState(ENDING);
+                        return;
+                }
 
         if (this.barrierTimer != -1) {
 
@@ -239,7 +250,7 @@ public class ArenaServiceRunnable extends BukkitRunnable {
         this.arena.setElapsedTime(this.arena.getElapsedTime() + 1);
         this.arena.setRemainingTime(this.arena.getRemainingTime() - 1);
 
-        if (this.arena.getRemainingTime() <= 0 || this.arena.getRunners().isEmpty())
+        if (this.arena.getRemainingTime() <= 0)
             this.setState(ENDING);
 
     }
@@ -248,8 +259,18 @@ public class ArenaServiceRunnable extends BukkitRunnable {
 
                 this.forceStartRequested = false;
 
-        for (int i = 0; i < this.configuration.plugin().arenaDeathsAmount; i++)
-            this.arena.getUsers().get(ThreadLocalRandom.current().nextInt(this.arena.getUsers().size())).setRole(DEATH);
+                this.arena.getUsers().forEach((user) -> user.setRole(UNKNOWN));
+
+                int users = this.arena.getUsers().size();
+                int configuredDeaths = Math.max(this.configuration.plugin().arenaDeathsAmount, 0);
+                int deathsToAssign = users <= 1 ? 0 : Math.min(configuredDeaths, users - 1);
+
+                if (deathsToAssign > 0) {
+                        ArrayList<IUser> shuffled = new ArrayList<>(this.arena.getUsers());
+                        Collections.shuffle(shuffled);
+                        for (int i = 0; i < deathsToAssign; i++)
+                                shuffled.get(i).setRole(DEATH);
+                }
 
         this.arena.getUsers()
                 .stream()
@@ -288,6 +309,8 @@ public class ArenaServiceRunnable extends BukkitRunnable {
 
                     this.server.getPluginManager().callEvent(new UserArenaRoleAssignedEvent(user.getRole(), user));
                     player.getInventory().clear();
+                                        player.setFoodLevel(20);
+                                        player.setSaturation(20.0f);
 
                     if (user.getRole() == RUNNER)
                         this.configuration.plugin().boosters
@@ -301,6 +324,8 @@ public class ArenaServiceRunnable extends BukkitRunnable {
                                         ));
 
                 });
+
+        this.startBackgroundSong();
 
     }
 
@@ -383,6 +408,8 @@ public class ArenaServiceRunnable extends BukkitRunnable {
         if (this.sidebarTask != null)
             this.sidebarTask.cancel();
 
+                this.stopBackgroundSong();
+
         if (this.arena.getSidebar() != null)
             this.arena.getSidebar().destroy();
 
@@ -390,7 +417,10 @@ public class ArenaServiceRunnable extends BukkitRunnable {
         if (this.arena.getGameState() == ENDING)
             return;
 
-        this.arena.setSidebar(newAdventureSidebar(miniMessage().deserialize(this.configuration.language().arenaScoreboardTitle), this.plugin));
+                if (!this.configuration.language().arenaScoreboardEnabled)
+            return;
+
+                this.arena.setSidebar(newAdventureSidebar(miniMessage().deserialize(this.configuration.language().arenaScoreboardTitle), this.plugin));
 
         switch (this.arena.getGameState()) {
 
@@ -415,7 +445,8 @@ public class ArenaServiceRunnable extends BukkitRunnable {
                 .filter(Objects::nonNull)
                 .forEach(this.arena.getSidebar()::addViewer);
 
-        this.sidebarTask = this.arena.getSidebar().updateLinesPeriodically(0, 20);
+        int updateTicks = Math.max(1, this.configuration.language().arenaScoreboardUpdateTicks);
+        this.sidebarTask = this.arena.getSidebar().updateLinesPeriodically(0, updateTicks);
 
     }
 
@@ -438,6 +469,7 @@ public class ArenaServiceRunnable extends BukkitRunnable {
                                                             .replace("<timeFormatted>", this.formatTime(this.arena.getRemainingTime()))
                                                             .replace("<runners>", valueOf(this.arena.getRunners().size()))
                                                             .replace("<deaths>", valueOf(user.getDeaths()))
+                                                            .replace("<deathPlayers>", valueOf(this.arena.getDeaths().size()))
                                             )),
                                             () -> this.arena.getSidebar().removeViewer(player)
                                     );
@@ -471,6 +503,54 @@ public class ArenaServiceRunnable extends BukkitRunnable {
         int minutes = time / 60, seconds = time % 60;
         return String.format("%02d:%02d", minutes, seconds);
     }
+
+        private void startBackgroundSong() {
+                if (!this.configuration.plugin().arenaBackgroundSongEnabled)
+                        return;
+
+                if (this.configuration.plugin().arenaBackgroundSongNotes == null || this.configuration.plugin().arenaBackgroundSongNotes.isEmpty())
+                        return;
+
+                int stepTicks = Math.max(1, this.configuration.plugin().arenaBackgroundSongStepTicks);
+                this.backgroundSongIndex = 0;
+                this.backgroundSongTask = this.server.getScheduler().runTaskTimer(this.plugin, () -> {
+                        if (this.arena.getGameState() != PLAYING)
+                                return;
+
+                        if (this.configuration.plugin().arenaBackgroundSongNotes == null || this.configuration.plugin().arenaBackgroundSongNotes.isEmpty())
+                                return;
+
+                        float pitch = this.configuration.plugin().arenaBackgroundSongNotes.get(this.backgroundSongIndex);
+                        this.backgroundSongIndex = (this.backgroundSongIndex + 1) % this.configuration.plugin().arenaBackgroundSongNotes.size();
+
+                        this.arena.getRunners().stream()
+                                        .map(IUser::asBukkit)
+                                        .filter(Objects::nonNull)
+                                        .forEach((player) -> player.playSound(
+                                                        player.getLocation(),
+                                                        this.configuration.plugin().arenaBackgroundSongSound,
+                                                        this.configuration.plugin().arenaBackgroundSongVolume,
+                                                        pitch
+                                        ));
+                }, 0L, stepTicks);
+        }
+
+        private void stopBackgroundSong() {
+                if (this.backgroundSongTask == null)
+                        return;
+
+                this.backgroundSongTask.cancel();
+                this.backgroundSongTask = null;
+                this.backgroundSongIndex = 0;
+        }
+
+        private int requiredPlayersToStart() {
+                int mapCapacity = this.map.arenaRunnerSpawnLocations.size() + this.map.arenaDeathSpawnLocations.size();
+                if (mapCapacity <= 0)
+                        return this.configuration.plugin().arenaMinPlayers;
+
+                return max(1, min(this.configuration.plugin().arenaMinPlayers, mapCapacity));
+        }
 
         private @NotNull String displayMapName() {
                 if (this.map.name != null && !this.map.name.isBlank())

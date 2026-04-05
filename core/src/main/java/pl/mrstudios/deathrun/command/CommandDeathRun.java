@@ -185,6 +185,25 @@ public class CommandDeathRun {
         this.handleForceStopResult(sender, mapId, this.arenaManager.forceStopMap(mapId));
     }
 
+    @Execute(name = "reload")
+    @Permission("mrstudios.command.deathrun.reload")
+    public void reload(
+            @Context CommandSender sender
+    ) {
+        try {
+            this.configuration.plugin().load();
+            this.configuration.language().load();
+            this.configuration.map().load();
+            this.configuration.map().ensureMapsMutable();
+
+            this.arenaManager.initialize();
+            this.message(sender, this.configuration.language().commandMessageReloadSuccess);
+        } catch (Exception exception) {
+            this.message(sender, this.configuration.language().commandMessageReloadFailed
+                    .replace("<reason>", requireNonNull(exception.getMessage(), "unknown")));
+        }
+    }
+
     @Execute(name = "leave")
     @Permission("mrstudios.command.deathrun.leave")
     public void leave(
@@ -281,6 +300,7 @@ public class CommandDeathRun {
         this.configuration.map().maps.add(map);
         this.setupMapSelection.put(player.getUniqueId(), map.id);
         this.configuration.map().save();
+        this.arenaManager.reloadRuntime(map.id);
 
         this.message(player, this.configuration.language().commandMessageSetupMapCreated
                 .replace("<map>", map.id)
@@ -308,6 +328,7 @@ public class CommandDeathRun {
         this.configuration.map().maps.removeIf((candidate) -> this.configuration.map().normalizedMapId(candidate.id).equals(this.configuration.map().normalizedMapId(map.id)));
         this.setupMapSelection.values().removeIf((selected) -> this.configuration.map().normalizedMapId(selected).equals(this.configuration.map().normalizedMapId(map.id)));
         this.configuration.map().save();
+        this.arenaManager.initialize();
 
         this.message(player, this.configuration.language().commandMessageSetupMapDeleted.replace("<map>", map.id));
     }
@@ -326,8 +347,10 @@ public class CommandDeathRun {
         }
 
         map.arenaSetupEnabled = true;
+        this.setupMapSelection.put(player.getUniqueId(), this.configuration.map().normalizedMapId(map.id));
         this.configuration.map().save();
         this.message(player, this.configuration.language().commandMessageSetupMapEnabled.replace("<map>", map.id));
+        this.message(player, this.configuration.language().commandMessageSetupMapSelected.replace("<map>", map.id));
     }
 
     @Execute(name = "setup maps disable")
@@ -631,11 +654,22 @@ public class CommandDeathRun {
         if (map == null)
             return;
 
+        List<Location> selectedLocations = this.locations(player);
+        if (selectedLocations.isEmpty()) {
+            this.message(player, this.configuration.language().commandMessageCheckpointAreaEmpty);
+            return;
+        }
+
+        int checkpointId = map.arenaCheckpoints.size();
         map.arenaCheckpoints.add(
-                new Checkpoint(map.arenaCheckpoints.size(), player.getLocation().toCenterLocation(), this.locations(player))
+            new Checkpoint(checkpointId, player.getLocation().toCenterLocation(), selectedLocations)
         );
 
-        this.message(player, this.configuration.language().commandMessageCheckpointAdded);
+        this.message(player, this.configuration.language().commandMessageCheckpointAdded
+            .replace("<checkpoint>", String.valueOf(checkpointId))
+            .replace("<map>", this.safe(map.id)));
+        this.message(player, this.configuration.language().commandMessageCheckpointAreaInfo
+            .replace("<blocks>", String.valueOf(selectedLocations.size())));
 
     }
 
@@ -939,15 +973,27 @@ public class CommandDeathRun {
             return null;
         }
 
-        String selected = this.setupMapSelection.computeIfAbsent(
-                player.getUniqueId(),
-                (key) -> this.configuration.map().normalizedMapId(maps.get(0).id)
-        );
+        String selected = this.setupMapSelection.get(player.getUniqueId());
+        if (selected == null || selected.isBlank()) {
+            if (maps.size() == 1) {
+                selected = this.configuration.map().normalizedMapId(maps.get(0).id);
+                this.setupMapSelection.put(player.getUniqueId(), selected);
+            } else {
+                this.message(player, this.configuration.language().commandMessageSetupMapNoSelection);
+                return null;
+            }
+        }
 
         MapConfiguration.MapDefinition map = this.configuration.map().getMapById(selected);
         if (map == null) {
-            this.setupMapSelection.put(player.getUniqueId(), this.configuration.map().normalizedMapId(maps.get(0).id));
-            map = maps.get(0);
+            if (maps.size() == 1) {
+                this.setupMapSelection.put(player.getUniqueId(), this.configuration.map().normalizedMapId(maps.get(0).id));
+                map = maps.get(0);
+            } else {
+                this.setupMapSelection.remove(player.getUniqueId());
+                this.message(player, this.configuration.language().commandMessageSetupMapNoSelection);
+                return null;
+            }
         }
 
         if (requireSetupEnabled && !map.arenaSetupEnabled) {

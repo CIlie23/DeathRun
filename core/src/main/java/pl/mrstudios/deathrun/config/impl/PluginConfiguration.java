@@ -122,6 +122,16 @@ public class PluginConfiguration extends OkaeriConfig {
     public Sound arenaSoundStarting = ENTITY_EXPERIENCE_ORB_PICKUP;
     public Sound arenaSoundStarted = ENTITY_ENDER_DRAGON_GROWL;
     public Sound arenaSoundCheckpointReached = ENTITY_EXPERIENCE_ORB_PICKUP;
+        public float arenaSoundCheckpointReachedVolume = 1.0f;
+        public float arenaSoundCheckpointReachedPitch = 1.0f;
+        public Sound arenaSoundPlayerFinished = UI_TOAST_CHALLENGE_COMPLETE;
+        public float arenaSoundPlayerFinishedVolume = 1.0f;
+        public float arenaSoundPlayerFinishedPitch = 1.0f;
+        public boolean arenaBackgroundSongEnabled = false;
+        public Sound arenaBackgroundSongSound = BLOCK_NOTE_BLOCK_HARP;
+        public float arenaBackgroundSongVolume = 0.75f;
+        public int arenaBackgroundSongStepTicks = 10;
+        public List<Float> arenaBackgroundSongNotes = of(1.0f, 1.12f, 1.25f, 1.12f, 1.0f, 0.89f, 1.0f, 1.25f);
     public Sound arenaSoundTrapDelay = ENTITY_VILLAGER_NO;
     public Sound arenaSoundPlayerDeath = ENTITY_SKELETON_DEATH;
 

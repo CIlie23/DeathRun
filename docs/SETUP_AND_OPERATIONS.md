@@ -108,6 +108,7 @@ Optional, if you need to re-edit an already finalized map:
 - /deathrun start <map>
 - /deathrun stop
 - /deathrun stop <map>
+- /deathrun reload
 - /deathrun maps
 - /deathrun leave
 
@@ -220,6 +221,30 @@ Generated under plugin data folder:
 - config.yml: gameplay timings, sounds, boosters, effects
 - language.yml: all message and UI text
 - map.yml: map definitions, setup data, checkpoints, traps, barriers, backups
+
+### Scoreboard Config (language.yml)
+
+Scoreboard is configured in `language.yml` using:
+
+- `arena-scoreboard-enabled`
+- `arena-scoreboard-update-ticks`
+- `arena-scoreboard-title`
+- `arena-scoreboard-lines-waiting`
+- `arena-scoreboard-lines-starting`
+- `arena-scoreboard-lines-playing`
+
+Available placeholders include:
+
+- `<map>`
+- `<currentPlayers>`
+- `<maxPlayers>`
+- `<timer>`
+- `<time>`
+- `<timeFormatted>`
+- `<runners>`
+- `<deaths>` (death counter for current viewer)
+- `<deathPlayers>` (count of players with death role)
+- `<role>`
 
 ## Known Notes
 

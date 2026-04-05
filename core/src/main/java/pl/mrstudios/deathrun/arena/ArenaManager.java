@@ -1,7 +1,9 @@
 package pl.mrstudios.deathrun.arena;
 
 import net.kyori.adventure.platform.bukkit.BukkitAudiences;
+import org.bukkit.Bukkit;
 import org.bukkit.Server;
+import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.plugin.Plugin;
@@ -55,6 +57,9 @@ public class ArenaManager {
     }
 
     public void initialize() {
+        new ArrayList<>(this.server.getOnlinePlayers()).forEach((player) -> this.leaveCurrentMap(player, false));
+        this.playerMapIndex.clear();
+
         this.runtimesByMapId.values().forEach((runtime) -> runtime.service().cancel());
         this.runtimesByMapId.clear();
 
@@ -131,22 +136,52 @@ public class ArenaManager {
             @NotNull String mapId
     ) {
         ArenaRuntime runtime = this.runtimeByMapId(mapId);
-        if (runtime == null)
+        if (runtime == null) {
+            this.plugin.getLogger().info("[DR-DBG] join rejected: map-unavailable mapId=" + mapId + " player=" + player.getName());
             return JoinResult.MAP_UNAVAILABLE;
+        }
 
-        if (!this.isMapConfigured(runtime.map()))
+        if (!this.isMapConfigured(runtime.map())) {
+            this.plugin.getLogger().info(
+                    "[DR-DBG] join rejected: map-not-ready mapId=" + runtime.mapId()
+                            + " player=" + player.getName()
+                            + " setupEnabled=" + runtime.map().arenaSetupEnabled
+                            + " waitingLobby=" + (runtime.map().arenaWaitingLobbyLocation != null)
+                            + " runnerSpawns=" + runtime.map().arenaRunnerSpawnLocations.size()
+                            + " deathSpawns=" + runtime.map().arenaDeathSpawnLocations.size()
+                            + " checkpoints=" + runtime.map().arenaCheckpoints.size()
+            );
             return JoinResult.MAP_NOT_READY;
+        }
 
-        if (runtime.arena().getGameState() != WAITING && runtime.arena().getGameState() != STARTING)
+        if (runtime.arena().getGameState() != WAITING && runtime.arena().getGameState() != STARTING) {
+            this.plugin.getLogger().info(
+                    "[DR-DBG] join rejected: match-in-progress mapId=" + runtime.mapId()
+                            + " player=" + player.getName()
+                            + " state=" + runtime.arena().getGameState().name()
+            );
             return JoinResult.MATCH_IN_PROGRESS;
+        }
 
         int maxPlayers = this.maxPlayers(runtime.map());
-        if (runtime.arena().getUsers().size() >= maxPlayers)
+        if (runtime.arena().getUsers().size() >= maxPlayers) {
+            this.plugin.getLogger().info(
+                    "[DR-DBG] join rejected: map-full mapId=" + runtime.mapId()
+                            + " player=" + player.getName()
+                            + " users=" + runtime.arena().getUsers().size()
+                            + " max=" + maxPlayers
+            );
             return JoinResult.MAP_FULL;
+        }
 
         ArenaRuntime previousRuntime = this.runtimeForPlayer(player);
-        if (previousRuntime != null && previousRuntime.mapId().equalsIgnoreCase(runtime.mapId()))
+        if (previousRuntime != null && previousRuntime.mapId().equalsIgnoreCase(runtime.mapId())) {
+            this.plugin.getLogger().info(
+                    "[DR-DBG] join ignored: already-in-map mapId=" + runtime.mapId()
+                            + " player=" + player.getName()
+            );
             return JoinResult.ALREADY_IN_MAP;
+        }
 
         this.leaveCurrentMap(player, true);
 
@@ -164,12 +199,18 @@ public class ArenaManager {
                 .filter(Objects::nonNull)
                 .forEach((target) -> this.audiences.player(target).sendMessage(miniMessage().deserialize(
                         this.configuration.language().chatMessageArenaPlayerJoined
-                                .replace("<player>", player.getDisplayName())
+                    .replace("<player>", this.safePlayerName(player))
                                 .replace("<currentPlayers>", valueOf(runtime.arena().getUsers().size()))
                                 .replace("<maxPlayers>", valueOf(maxPlayers))
                 )));
 
         this.server.getPluginManager().callEvent(new ArenaUserJoinedEvent(user, runtime.arena()));
+        this.plugin.getLogger().info(
+            "[DR-DBG] join accepted mapId=" + runtime.mapId()
+                + " player=" + player.getName()
+                + " users=" + runtime.arena().getUsers().size()
+                + " state=" + runtime.arena().getGameState().name()
+        );
         return JoinResult.JOINED;
     }
 
@@ -207,37 +248,38 @@ public class ArenaManager {
             @NotNull Player player,
             boolean notifyArena
     ) {
-        ArenaRuntime runtime = this.runtimeForPlayer(player);
-        if (runtime == null)
-            return false;
+        boolean removed = false;
 
-        IUser user = runtime.arena().getUser(player);
-        if (user == null) {
-            this.playerMapIndex.remove(player.getUniqueId());
-            return false;
+        for (ArenaRuntime runtime : this.runtimesByMapId.values()) {
+            IUser user = runtime.arena().getUser(player);
+            if (user == null)
+                continue;
+
+            runtime.arena().getUsers().remove(user);
+
+            if (runtime.arena().getSidebar() != null)
+                runtime.arena().getSidebar().removeViewer(player);
+
+            if (notifyArena && (runtime.arena().getGameState() == WAITING || runtime.arena().getGameState() == STARTING)) {
+                int maxPlayers = this.maxPlayers(runtime.map());
+                runtime.arena().getUsers().stream()
+                        .map(IUser::asBukkit)
+                        .filter(Objects::nonNull)
+                        .forEach((target) -> this.audiences.player(target).sendMessage(miniMessage().deserialize(
+                                this.configuration.language().chatMessageArenaPlayerLeft
+                                        .replace("<player>", this.safePlayerName(player))
+                                        .replace("<currentPlayers>", valueOf(runtime.arena().getUsers().size()))
+                                        .replace("<maxPlayers>", valueOf(maxPlayers))
+                        )));
+            }
+
+            this.server.getPluginManager().callEvent(new ArenaUserLeftEvent(user, runtime.arena()));
+            removed = true;
         }
 
-        runtime.arena().getUsers().remove(user);
         this.playerMapIndex.remove(player.getUniqueId());
-
-        if (runtime.arena().getSidebar() != null)
-            runtime.arena().getSidebar().removeViewer(player);
-
-        if (notifyArena && (runtime.arena().getGameState() == WAITING || runtime.arena().getGameState() == STARTING)) {
-            int maxPlayers = this.maxPlayers(runtime.map());
-            runtime.arena().getUsers().stream()
-                    .map(IUser::asBukkit)
-                    .filter(Objects::nonNull)
-                    .forEach((target) -> this.audiences.player(target).sendMessage(miniMessage().deserialize(
-                            this.configuration.language().chatMessageArenaPlayerLeft
-                                    .replace("<player>", player.getDisplayName())
-                                    .replace("<currentPlayers>", valueOf(runtime.arena().getUsers().size()))
-                                    .replace("<maxPlayers>", valueOf(maxPlayers))
-                    )));
-        }
-
-        this.server.getPluginManager().callEvent(new ArenaUserLeftEvent(user, runtime.arena()));
-        return true;
+        this.resetPlayerScoreboard(player);
+        return removed;
     }
 
     public void preparePlayerForLobbyTools(
@@ -286,6 +328,8 @@ public class ArenaManager {
         player.getInventory().clear();
         player.setGameMode(ADVENTURE);
         player.setAllowFlight(false);
+        player.setFoodLevel(20);
+        player.setSaturation(20.0f);
 
         if (map.arenaWaitingLobbyLocation != null)
             player.teleport(map.arenaWaitingLobbyLocation);
@@ -319,6 +363,22 @@ public class ArenaManager {
             @NotNull MapConfiguration.MapDefinition map
     ) {
         return (map.name == null || map.name.isBlank()) ? this.mapId(map) : map.name;
+    }
+
+    private @NotNull String safePlayerName(
+            @NotNull Player player
+    ) {
+        String stripped = ChatColor.stripColor(player.getDisplayName());
+        return stripped == null || stripped.isBlank() ? player.getName() : stripped;
+    }
+
+    private void resetPlayerScoreboard(
+            @NotNull Player player
+    ) {
+        if (Bukkit.getScoreboardManager() == null)
+            return;
+
+        player.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
     }
 
     public enum JoinResult {

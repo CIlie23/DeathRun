@@ -18,6 +18,10 @@ import pl.mrstudios.commons.inject.annotation.Inject;
 import pl.mrstudios.commons.reflection.Reflections;
 import pl.mrstudios.deathrun.arena.Arena;
 import pl.mrstudios.deathrun.arena.ArenaManager;
+import pl.mrstudios.deathrun.arena.listener.ArenaBoosterListener;
+import pl.mrstudios.deathrun.arena.listener.ArenaCheckpointReachedListener;
+import pl.mrstudios.deathrun.arena.listener.ArenaClickItemListener;
+import pl.mrstudios.deathrun.arena.listener.ArenaMapSelectorListener;
 import pl.mrstudios.deathrun.arena.selector.MapSelectorService;
 import pl.mrstudios.deathrun.arena.trap.TrapRegistry;
 import pl.mrstudios.deathrun.arena.trap.impl.*;
@@ -32,6 +36,7 @@ import pl.mrstudios.deathrun.config.impl.PluginConfiguration;
 import pl.mrstudios.deathrun.exception.MissingDependencyException;
 
 import java.io.File;
+import java.util.List;
 
 import static com.sk89q.worldedit.WorldEdit.getInstance;
 import static dev.rollczi.litecommands.annotations.LiteCommandsAnnotations.of;
@@ -160,14 +165,38 @@ public class Entrypoint extends JavaPlugin {
                 .build();
 
         /* Register Listeners */
-        new Reflections<Listener>("pl.mrstudios.deathrun.arena.listener")
+        List<Class<? extends Listener>> listenerClasses = new Reflections<Listener>("pl.mrstudios.deathrun.arena.listener")
             .getClassesImplementing(Listener.class).stream().filter(
                 (listener) -> stream(listener.getConstructors())
                     .anyMatch((constructor) -> constructor.isAnnotationPresent(Inject.class))
-            ).forEach(
+            ).toList();
+
+        listenerClasses.forEach(
                 (listener) -> this.getServer().getPluginManager()
                     .registerEvents(this.injector.inject(listener), this)
             );
+
+        this.getLogger().info("Registered listeners via reflection: " + listenerClasses.size());
+
+        if (listenerClasses.stream().noneMatch((listener) -> listener.equals(ArenaCheckpointReachedListener.class))) {
+            this.getServer().getPluginManager().registerEvents(this.injector.inject(ArenaCheckpointReachedListener.class), this);
+            this.getLogger().warning("Checkpoint listener was not found by reflection, registered fallback explicitly.");
+        }
+
+        if (listenerClasses.stream().noneMatch((listener) -> listener.equals(ArenaClickItemListener.class))) {
+            this.getServer().getPluginManager().registerEvents(this.injector.inject(ArenaClickItemListener.class), this);
+            this.getLogger().warning("Click item listener was not found by reflection, registered fallback explicitly.");
+        }
+
+        if (listenerClasses.stream().noneMatch((listener) -> listener.equals(ArenaMapSelectorListener.class))) {
+            this.getServer().getPluginManager().registerEvents(this.injector.inject(ArenaMapSelectorListener.class), this);
+            this.getLogger().warning("Map selector listener was not found by reflection, registered fallback explicitly.");
+        }
+
+        if (listenerClasses.stream().noneMatch((listener) -> listener.equals(ArenaBoosterListener.class))) {
+            this.getServer().getPluginManager().registerEvents(this.injector.inject(ArenaBoosterListener.class), this);
+            this.getLogger().warning("Booster listener was not found by reflection, registered fallback explicitly.");
+        }
 
         /* Initialize API */
         createInstance(java.util.Objects.requireNonNullElseGet(this.arenaManager.primaryArena(), () -> new Arena("default")), this.trapRegistry);
