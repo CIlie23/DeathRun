@@ -11,7 +11,7 @@ softdepend:
 commands:
   deathrun:
     description: "DeathRun main command"
-    usage: "/<command> [help|maps|leave|setup]"
+    usage: "/<command> [join|start|stop|maps|leave|setup]"
     aliases:
       - "dr"
     permission: "mrstudios.command.deathrun"
@@ -24,6 +24,18 @@ permissions:
   mrstudios.command.deathrun.leave:
     description: "Allows using /deathrun leave"
     default: true
+  mrstudios.command.deathrun.join:
+    description: "Allows using /deathrun join <map>"
+    default: true
+  mrstudios.command.deathrun.join.others:
+    description: "Allows using /deathrun join <map> <player>"
+    default: op
+  mrstudios.command.deathrun.start:
+    description: "Allows using /deathrun start (map)"
+    default: op
+  mrstudios.command.deathrun.stop:
+    description: "Allows using /deathrun stop (map)"
+    default: op
   mrstudios.command.deathrun.setup:
     description: "Allows using /deathrun setup and setup subcommands"
     default: op

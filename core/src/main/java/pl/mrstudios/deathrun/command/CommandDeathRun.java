@@ -16,6 +16,7 @@ import org.bukkit.Particle;
 import org.bukkit.World;
 import org.bukkit.WorldCreator;
 import org.bukkit.block.Block;
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
@@ -51,6 +52,7 @@ import static java.util.Collections.emptyList;
 import static java.util.Optional.ofNullable;
 import static java.util.stream.Stream.of;
 import static net.kyori.adventure.text.minimessage.MiniMessage.miniMessage;
+import static net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText;
 import static org.apache.commons.io.FileUtils.deleteDirectory;
 import static org.bukkit.Material.*;
 import static pl.mrstudios.deathrun.api.arena.user.enums.Role.DEATH;
@@ -100,16 +102,9 @@ public class CommandDeathRun {
     public void noArguments(
             @Context Player player
     ) {
-        String content = join("<br>", this.configuration.language().commandHelpMainLines)
+        String content = java.lang.String.join("<br>", this.configuration.language().commandHelpMainLines)
             .replace("<version>", this.plugin.getDescription().getVersion());
         this.message(player, content);
-    }
-
-    @Execute(name = "help")
-    public void help(
-            @Context Player player
-    ) {
-        this.noArguments(player);
     }
 
     @Execute(name = "maps")
@@ -123,6 +118,71 @@ public class CommandDeathRun {
         }
 
         this.mapSelectorService.open(player);
+    }
+
+    @Execute(name = "join")
+    @Permission("mrstudios.command.deathrun.join")
+    public void join(
+            @Context Player player,
+            @Arg("map") String mapId
+    ) {
+        this.joinPlayerToMap(player, mapId, null);
+    }
+
+    @Execute(name = "join")
+    @Permission("mrstudios.command.deathrun.join.others")
+    public void join(
+            @Context CommandSender sender,
+            @Arg("map") String mapId,
+            @Arg("player") Player target
+    ) {
+        this.joinPlayerToMap(target, mapId, sender);
+    }
+
+    @Execute(name = "start")
+    @Permission("mrstudios.command.deathrun.start")
+    public void startCurrent(
+            @Context Player player
+    ) {
+        ArenaManager.ArenaRuntime runtime = this.arenaManager.runtimeForPlayer(player);
+        if (runtime == null) {
+            this.message(player, this.configuration.language().commandMessageStartNoCurrentMap);
+            return;
+        }
+
+        this.handleForceStartResult(player, runtime.mapId(), this.arenaManager.forceStartMap(runtime.mapId()));
+    }
+
+    @Execute(name = "start")
+    @Permission("mrstudios.command.deathrun.start")
+    public void startMap(
+            @Context CommandSender sender,
+            @Arg("map") String mapId
+    ) {
+        this.handleForceStartResult(sender, mapId, this.arenaManager.forceStartMap(mapId));
+    }
+
+    @Execute(name = "stop")
+    @Permission("mrstudios.command.deathrun.stop")
+    public void stopCurrent(
+            @Context Player player
+    ) {
+        ArenaManager.ArenaRuntime runtime = this.arenaManager.runtimeForPlayer(player);
+        if (runtime == null) {
+            this.message(player, this.configuration.language().commandMessageStopNoCurrentMap);
+            return;
+        }
+
+        this.handleForceStopResult(player, runtime.mapId(), this.arenaManager.forceStopMap(runtime.mapId()));
+    }
+
+    @Execute(name = "stop")
+    @Permission("mrstudios.command.deathrun.stop")
+    public void stopMap(
+            @Context CommandSender sender,
+            @Arg("map") String mapId
+    ) {
+        this.handleForceStopResult(sender, mapId, this.arenaManager.forceStopMap(mapId));
     }
 
     @Execute(name = "leave")
@@ -142,21 +202,13 @@ public class CommandDeathRun {
     ) {
         this.configuration.map().ensureMapsMutable();
 
-        String content = join("<br>", this.configuration.language().commandHelpSetupLines)
+        String content = java.lang.String.join("<br>", this.configuration.language().commandHelpSetupLines)
             .replace("<version>", this.plugin.getDescription().getVersion());
         this.message(player, content);
 
         MapConfiguration.MapDefinition map = this.selectedMapForSetup(player, false);
         if (map != null)
             this.message(player, this.configuration.language().commandMessageSetupMapSelected.replace("<map>", map.id));
-    }
-
-    @Execute(name = "setup help")
-    @Permission("mrstudios.command.deathrun.setup")
-    public void setupHelp(
-            @Context Player player
-    ) {
-        this.noArgumentsSetup(player);
     }
 
     @Execute(name = "setup maps list")
@@ -798,6 +850,18 @@ public class CommandDeathRun {
         this.audiences.player(player).sendMessage(miniMessage().deserialize(content));
     }
 
+    private void message(
+            @NotNull CommandSender sender,
+            @NotNull String message
+    ) {
+        if (sender instanceof Player player) {
+            this.audiences.player(player).sendMessage(miniMessage().deserialize(message));
+            return;
+        }
+
+        sender.sendMessage(plainText().serialize(miniMessage().deserialize(message)));
+    }
+
     protected List<Location> locations(@NotNull Player player) {
 
         try {
@@ -892,6 +956,67 @@ public class CommandDeathRun {
         }
 
         return map;
+    }
+
+    private void joinPlayerToMap(
+            @NotNull Player target,
+            @NotNull String mapId,
+            @Nullable CommandSender actor
+    ) {
+        if (mapId.equalsIgnoreCase("lobby") || mapId.equalsIgnoreCase("leave")) {
+            this.arenaManager.leaveCurrentMap(target, true);
+            connect(this.plugin, target, this.configuration.plugin().server);
+
+            if (actor != null && actor != target)
+                this.message(actor, this.configuration.language().commandMessageJoinForcedLobbyActor
+                        .replace("<player>", target.getName()));
+            return;
+        }
+
+        ArenaManager.JoinResult result = this.arenaManager.joinMap(target, mapId);
+        String content = switch (result) {
+            case JOINED -> this.configuration.language().mapSelectorMapSelected.replace("<map>", mapId);
+            case ALREADY_IN_MAP -> this.configuration.language().mapSelectorAlreadyJoined;
+            case MAP_NOT_READY -> this.configuration.language().mapSelectorMapNotReady;
+            case MAP_FULL -> this.configuration.language().mapSelectorMapFull;
+            case MATCH_IN_PROGRESS -> this.configuration.language().mapSelectorMapInProgress;
+            default -> this.configuration.language().mapSelectorMapUnavailable;
+        };
+
+        this.message(target, content);
+        if (actor != null && actor != target)
+            this.message(actor, this.configuration.language().commandMessageJoinForcedActor
+                .replace("<player>", target.getName())
+                .replace("<map>", mapId));
+    }
+
+    private void handleForceStartResult(
+            @NotNull CommandSender sender,
+            @NotNull String mapId,
+            @NotNull ArenaManager.ForceStartResult result
+    ) {
+        String content = switch (result) {
+            case STARTED -> this.configuration.language().commandMessageStartSuccess.replace("<map>", mapId);
+            case MAP_UNAVAILABLE -> this.configuration.language().commandMessageStartMapUnavailable.replace("<map>", mapId);
+            case NO_PLAYERS -> this.configuration.language().commandMessageStartNoPlayers.replace("<map>", mapId);
+            case MATCH_ALREADY_RUNNING -> this.configuration.language().commandMessageStartAlreadyRunning.replace("<map>", mapId);
+        };
+
+        this.message(sender, content);
+    }
+
+    private void handleForceStopResult(
+            @NotNull CommandSender sender,
+            @NotNull String mapId,
+            @NotNull ArenaManager.ForceStopResult result
+    ) {
+        String content = switch (result) {
+            case STOPPED -> this.configuration.language().commandMessageStopSuccess.replace("<map>", mapId);
+            case MAP_UNAVAILABLE -> this.configuration.language().commandMessageStopMapUnavailable.replace("<map>", mapId);
+            case ALREADY_WAITING -> this.configuration.language().commandMessageStopAlreadyWaiting.replace("<map>", mapId);
+        };
+
+        this.message(sender, content);
     }
 
     private String safe(String value) {

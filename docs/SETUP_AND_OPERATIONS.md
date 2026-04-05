@@ -19,7 +19,7 @@ Spigot may work, but current development and testing are focused on Paper.
 Built jar:
 
 ```text
-core/build/libs/deathrun-core-1.3.3-PATCHED-3.jar
+core/build/libs/deathrun-core-1.3.3-PATCHED.jar
 ```
 
 ## Install
@@ -29,12 +29,97 @@ core/build/libs/deathrun-core-1.3.3-PATCHED-3.jar
 3. Start server once to generate config files.
 4. Configure maps with setup commands.
 
+## Copy-Paste Setup Commands (Functional Lobby)
+
+Replace `<map_id>` and `<world_name>` with your values.
+
+1. Create and select map:
+
+```text
+/deathrun setup maps create <map_id> <world_name>
+/deathrun setup maps use <map_id>
+```
+
+2. Set waiting lobby (stand in lobby location first):
+
+```text
+/deathrun setup setwaitinglobby
+```
+
+3. Add spawns (stand in each spawn position before command):
+
+```text
+/deathrun setup addspawn RUNNER
+/deathrun setup addspawn DEATH
+```
+
+4. Set start barrier (select barrier with WorldEdit first):
+
+```text
+/deathrun setup setstartbarrier
+```
+
+5. Add at least one checkpoint (select checkpoint region with WorldEdit first):
+
+```text
+/deathrun setup addcheckpoint
+```
+
+6. Validate setup:
+
+```text
+/deathrun setup maps check <map_id>
+/deathrun setup maps status <map_id>
+```
+
+7. Auto-fix snapshot/backup (recommended):
+
+```text
+/deathrun setup maps autofix <map_id>
+```
+
+8. Finalize map (runs preflight, creates backup, disables setup mode):
+
+```text
+/deathrun setup save
+```
+
+9. Final verification:
+
+```text
+/deathrun setup maps status <map_id>
+```
+
+Expected for fully functional map: `setup-disabled` and healthy/no issues.
+
+Optional, if you need to re-edit an already finalized map:
+
+```text
+/deathrun setup maps enable <map_id>
+/deathrun setup maps use <map_id>
+```
+
 ## Core Player Commands
 
 - /deathrun
-- /deathrun help
+- /deathrun join <map>
+- /deathrun join lobby
+- /deathrun start
+- /deathrun start <map>
+- /deathrun stop
+- /deathrun stop <map>
 - /deathrun maps
 - /deathrun leave
+
+For hub plugins (DeluxeHub, etc.) you can use placeholder-friendly forced join:
+
+- /deathrun join <map> <player>
+
+Example:
+
+```text
+/deathrun join map1 %player%
+```
 
 ## Admin Setup Commands
 

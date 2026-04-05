@@ -50,7 +50,10 @@ public class LanguageConfiguration extends OkaeriConfig {
             "<reset>",
             "<reset>    <gold>DeathRun <dark_gray>(v<version>) <gray>by <white>MrStudios Industries",
             "<reset>",
-            "<reset> <b>*</b> <white>/deathrun help",
+            "<reset> <b>*</b> <white>/deathrun join <map>",
+            "<reset> <b>*</b> <white>/deathrun join lobby",
+            "<reset> <b>*</b> <white>/deathrun start (map)",
+            "<reset> <b>*</b> <white>/deathrun stop (map)",
             "<reset> <b>*</b> <white>/deathrun maps",
             "<reset> <b>*</b> <white>/deathrun leave",
             "<reset> <b>*</b> <white>/deathrun setup",
@@ -72,7 +75,6 @@ public class LanguageConfiguration extends OkaeriConfig {
             "<reset> <b>*</b> <white>/deathrun setup maps fixbarrier <id>",
             "<reset> <b>*</b> <white>/deathrun setup maps backup <id>",
             "<reset> <b>*</b> <white>/deathrun setup maps autofix <id>",
-            "<reset> <b>*</b> <white>/deathrun setup help",
             "<reset> <b>*</b> <white>/deathrun setup setname <name>",
             "<reset> <b>*</b> <white>/deathrun setup setwaitinglobby",
             "<reset> <b>*</b> <white>/deathrun setup setstartbarrier (material)",
@@ -96,6 +98,17 @@ public class LanguageConfiguration extends OkaeriConfig {
     public String commandMessageTrapNotExists = "<reset> <dark_red><b>*</b> <red>Trap <dark_red><type> <red>is not exists.";
     public String commandMessageTrapAdded = "<reset> <dark_green><b>*</b> <green>Added trap <dark_green><type> <green>to arena.";
     public String commandMessageNoMapsConfigured = "<dark_red><b>*</b> <red>No maps are configured yet.";
+                public String commandMessageStartSuccess = "<dark_green><b>*</b> <green>Force-start scheduled for map <dark_green><map><green>.";
+                public String commandMessageStartMapUnavailable = "<dark_red><b>*</b> <red>Map <dark_red><map> <red>is not available.";
+                public String commandMessageStartNoPlayers = "<dark_red><b>*</b> <red>Map <dark_red><map> <red>has no queued players to start.";
+                public String commandMessageStartAlreadyRunning = "<dark_red><b>*</b> <red>Map <dark_red><map> <red>is already running.";
+                public String commandMessageStartNoCurrentMap = "<dark_red><b>*</b> <red>You are not queued in any map. Use <white>/deathrun start <map><red>.";
+                public String commandMessageStopSuccess = "<dark_green><b>*</b> <green>Map <dark_green><map> <green>has been stopped and reset to waiting.";
+                public String commandMessageStopMapUnavailable = "<dark_red><b>*</b> <red>Map <dark_red><map> <red>is not available.";
+                public String commandMessageStopAlreadyWaiting = "<gold><b>*</b> <yellow>Map <gold><map> <yellow>is already in waiting state.";
+                public String commandMessageStopNoCurrentMap = "<dark_red><b>*</b> <red>You are not queued in any map. Use <white>/deathrun stop <map><red>.";
+                public String commandMessageJoinForcedActor = "<dark_green><b>*</b> <green>Executed join for <dark_green><player><green> on map <dark_green><map><green>.";
+                public String commandMessageJoinForcedLobbyActor = "<dark_green><b>*</b> <green>Sent <dark_green><player> <green>to lobby.";
         public String commandMessageSetupMapSelected = "<reset> <dark_green><b>*</b> <green>Selected setup map <dark_green><map><green>.";
         public String commandMessageSetupMapCreated = "<reset> <dark_green><b>*</b> <green>Created map <dark_green><map><green> in world <dark_green><world><green>.";
         public String commandMessageSetupMapDeleted = "<reset> <dark_green><b>*</b> <green>Deleted map <dark_green><map><green>.";

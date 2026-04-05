@@ -54,6 +54,7 @@ public class ArenaServiceRunnable extends BukkitRunnable {
     private final Configuration configuration;
 
     private BukkitTask sidebarTask;
+        private boolean forceStartRequested;
 
     @Inject
     public ArenaServiceRunnable(
@@ -101,7 +102,12 @@ public class ArenaServiceRunnable extends BukkitRunnable {
     /* Waiting */
     protected void waiting() {
 
-        if (this.arena.getUsers().size() >= this.configuration.plugin().arenaMinPlayers)
+                if (this.forceStartRequested && !this.arena.getUsers().isEmpty()) {
+                        this.setState(STARTING);
+                        return;
+                }
+
+                if (this.arena.getUsers().size() >= this.configuration.plugin().arenaMinPlayers)
             this.setState(STARTING);
 
     }
@@ -139,7 +145,12 @@ public class ArenaServiceRunnable extends BukkitRunnable {
 
     protected void starting() {
 
-        if (this.arena.getUsers().size() < this.configuration.plugin().arenaMinPlayers) {
+                if (this.arena.getUsers().isEmpty()) {
+                        this.setState(WAITING);
+                        return;
+                }
+
+                if (!this.forceStartRequested && this.arena.getUsers().size() < this.configuration.plugin().arenaMinPlayers) {
             this.setState(WAITING);
             return;
         }
@@ -234,6 +245,8 @@ public class ArenaServiceRunnable extends BukkitRunnable {
     }
 
     protected void stateSwitchToPlaying() {
+
+                this.forceStartRequested = false;
 
         for (int i = 0; i < this.configuration.plugin().arenaDeathsAmount; i++)
             this.arena.getUsers().get(ThreadLocalRandom.current().nextInt(this.arena.getUsers().size())).setRole(DEATH);
@@ -390,6 +403,10 @@ public class ArenaServiceRunnable extends BukkitRunnable {
             case PLAYING ->
                     this.configuration.language().arenaScoreboardLinesPlaying.forEach(this::addLine);
 
+            case ENDING -> {
+                // No scoreboard lines are rendered for ENDING because sidebar is torn down above.
+            }
+
         }
 
         this.arena.getUsers()
@@ -412,7 +429,7 @@ public class ArenaServiceRunnable extends BukkitRunnable {
                             ofNullable(this.arena.getUser(player))
                                     .ifPresentOrElse(
                                             (user) -> component.set(miniMessage().deserialize(
-                                                    content.replace("<map>", this.map.name)
+                                                    content.replace("<map>", this.displayMapName())
                                                             .replace("<role>", this.rolePrefix(user.getRole()))
                                                             .replace("<currentPlayers>", valueOf(this.arena.getUsers().size()))
                                                             .replace("<maxPlayers>", valueOf(this.map.arenaRunnerSpawnLocations.size() + this.map.arenaDeathSpawnLocations.size()))
@@ -455,10 +472,43 @@ public class ArenaServiceRunnable extends BukkitRunnable {
         return String.format("%02d:%02d", minutes, seconds);
     }
 
+        private @NotNull String displayMapName() {
+                if (this.map.name != null && !this.map.name.isBlank())
+                        return this.map.name;
+
+                if (this.map.id != null && !this.map.id.isBlank())
+                        return this.map.id;
+
+                return "default";
+        }
+
     /* Constants */
     protected static final int[] messageTimes = new int[] { 1, 2, 3, 4, 5, 10, 15, 30, 60, 90, 180, 360 };
 
+        public boolean requestForceStart() {
+                if (this.arena.getGameState() == PLAYING || this.arena.getGameState() == ENDING)
+                        return false;
+
+                if (this.arena.getUsers().isEmpty())
+                        return false;
+
+                this.forceStartRequested = true;
+                if (this.arena.getGameState() == WAITING)
+                        this.setState(STARTING);
+
+                return true;
+        }
+
+        public boolean requestStop() {
+                if (this.arena.getGameState() == WAITING)
+                        return false;
+
+                this.setState(WAITING);
+                return true;
+        }
+
         private void resetRoundState() {
+                                this.forceStartRequested = false;
                 this.barrierTimer = this.configuration.plugin().arenaStartingTime;
                 this.arena.setRemainingTime(this.configuration.plugin().arenaGameTime);
                 this.startingTimer = this.configuration.plugin().arenaPreStartingTime + 1;

@@ -29,6 +29,8 @@ import static org.bukkit.potion.PotionEffectType.NIGHT_VISION;
 import static org.bukkit.potion.PotionEffectType.SATURATION;
 import static pl.mrstudios.deathrun.api.arena.enums.GameState.STARTING;
 import static pl.mrstudios.deathrun.api.arena.enums.GameState.WAITING;
+import static pl.mrstudios.deathrun.api.arena.enums.GameState.PLAYING;
+import static pl.mrstudios.deathrun.api.arena.enums.GameState.ENDING;
 
 public class ArenaManager {
 
@@ -171,6 +173,36 @@ public class ArenaManager {
         return JoinResult.JOINED;
     }
 
+    public @NotNull ForceStartResult forceStartMap(
+            @NotNull String mapId
+    ) {
+        ArenaRuntime runtime = this.runtimeByMapId(mapId);
+        if (runtime == null)
+            return ForceStartResult.MAP_UNAVAILABLE;
+
+        if (runtime.arena().getGameState() == PLAYING || runtime.arena().getGameState() == ENDING)
+            return ForceStartResult.MATCH_ALREADY_RUNNING;
+
+        if (runtime.arena().getUsers().isEmpty())
+            return ForceStartResult.NO_PLAYERS;
+
+        return runtime.service().requestForceStart()
+                ? ForceStartResult.STARTED
+                : ForceStartResult.MATCH_ALREADY_RUNNING;
+    }
+
+    public @NotNull ForceStopResult forceStopMap(
+            @NotNull String mapId
+    ) {
+        ArenaRuntime runtime = this.runtimeByMapId(mapId);
+        if (runtime == null)
+            return ForceStopResult.MAP_UNAVAILABLE;
+
+        return runtime.service().requestStop()
+                ? ForceStopResult.STOPPED
+                : ForceStopResult.ALREADY_WAITING;
+    }
+
     public boolean leaveCurrentMap(
             @NotNull Player player,
             boolean notifyArena
@@ -296,6 +328,19 @@ public class ArenaManager {
         MAP_NOT_READY,
         MAP_FULL,
         MATCH_IN_PROGRESS
+    }
+
+    public enum ForceStartResult {
+        STARTED,
+        MAP_UNAVAILABLE,
+        NO_PLAYERS,
+        MATCH_ALREADY_RUNNING
+    }
+
+    public enum ForceStopResult {
+        STOPPED,
+        MAP_UNAVAILABLE,
+        ALREADY_WAITING
     }
 
     public record ArenaRuntime(
