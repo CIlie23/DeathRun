@@ -18,6 +18,7 @@ import pl.mrstudios.commons.inject.annotation.Inject;
 import pl.mrstudios.commons.reflection.Reflections;
 import pl.mrstudios.deathrun.arena.Arena;
 import pl.mrstudios.deathrun.arena.ArenaServiceRunnable;
+import pl.mrstudios.deathrun.arena.selector.MapSelectorService;
 import pl.mrstudios.deathrun.arena.trap.TrapRegistry;
 import pl.mrstudios.deathrun.arena.trap.impl.*;
 import pl.mrstudios.deathrun.command.CommandDeathRun;
@@ -104,6 +105,7 @@ public class Entrypoint extends JavaPlugin {
                 /* Plugin Stuff */
                 .register(Arena.class, this.arena)
                 .register(TrapRegistry.class, this.trapRegistry)
+                .register(MapSelectorService.class, new MapSelectorService(this, this.configuration, this.audiences))
                 .register(Configuration.class, this.configuration);
 
         /* Register Traps */

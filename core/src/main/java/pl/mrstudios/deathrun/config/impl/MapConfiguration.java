@@ -10,6 +10,7 @@ import pl.mrstudios.deathrun.arena.pad.TeleportPad;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import static eu.okaeri.configs.annotation.NameModifier.TO_LOWER_CASE;
 import static eu.okaeri.configs.annotation.NameStrategy.HYPHEN_CASE;
@@ -28,6 +29,8 @@ import static eu.okaeri.configs.annotation.NameStrategy.HYPHEN_CASE;
 }) @SuppressWarnings("deprecation")
 @Names(strategy = HYPHEN_CASE, modifier = TO_LOWER_CASE)
 public class MapConfiguration extends OkaeriConfig {
+
+    public List<MapDefinition> maps = new ArrayList<>();
 
     public String arenaName;
 
@@ -49,5 +52,58 @@ public class MapConfiguration extends OkaeriConfig {
 
     /* Setup Status */
     public boolean arenaSetupEnabled = true;
+
+    public List<MapDefinition> resolvedMaps() {
+        if (!this.maps.isEmpty())
+            return this.maps;
+
+        MapDefinition legacyMap = new MapDefinition();
+        legacyMap.id = this.arenaName == null
+                ? "default"
+                : this.arenaName.toLowerCase(Locale.ROOT).replace(" ", "-");
+        legacyMap.name = this.arenaName;
+        legacyMap.world = this.arenaWaitingLobbyLocation == null ? "" : this.arenaWaitingLobbyLocation.getWorld().getName();
+        legacyMap.arenaWaitingLobbyLocation = this.arenaWaitingLobbyLocation;
+        legacyMap.arenaRunnerSpawnLocations = this.arenaRunnerSpawnLocations;
+        legacyMap.arenaDeathSpawnLocations = this.arenaDeathSpawnLocations;
+        legacyMap.arenaTraps = this.arenaTraps;
+        legacyMap.arenaCheckpoints = this.arenaCheckpoints;
+        legacyMap.teleportPads = this.teleportPads;
+        legacyMap.arenaStartBarrierBlocks = this.arenaStartBarrierBlocks;
+        legacyMap.arenaSetupEnabled = this.arenaSetupEnabled;
+        return List.of(legacyMap);
+    }
+
+    public MapDefinition getMapById(String id) {
+        return this.resolvedMaps().stream()
+                .filter((map) -> map.id != null)
+                .filter((map) -> map.id.equalsIgnoreCase(id))
+                .findFirst()
+                .orElse(null);
+    }
+
+    @SuppressWarnings("deprecation")
+    @Names(strategy = HYPHEN_CASE, modifier = TO_LOWER_CASE)
+    public static class MapDefinition extends OkaeriConfig {
+
+        public String id;
+        public String name;
+        public String world;
+
+        public Location arenaWaitingLobbyLocation;
+
+        public List<Location> arenaRunnerSpawnLocations = new ArrayList<>();
+        public List<Location> arenaDeathSpawnLocations = new ArrayList<>();
+
+        public List<ITrap> arenaTraps = new ArrayList<>();
+
+        public List<Checkpoint> arenaCheckpoints = new ArrayList<>();
+
+        public List<TeleportPad> teleportPads = new ArrayList<>();
+        public List<Location> arenaStartBarrierBlocks = new ArrayList<>();
+
+        public boolean arenaSetupEnabled = false;
+
+    }
 
 }

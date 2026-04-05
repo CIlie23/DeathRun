@@ -11,7 +11,7 @@ softdepend:
 commands:
   deathrun:
     description: "DeathRun main command"
-    usage: "/<command> [leave|setup]"
+    usage: "/<command> [help|maps|leave|setup]"
     aliases:
       - "dr"
     permission: "mrstudios.command.deathrun"

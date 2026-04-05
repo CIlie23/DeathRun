@@ -23,6 +23,7 @@ import pl.mrstudios.deathrun.api.arena.trap.ITrap;
 import pl.mrstudios.deathrun.api.arena.user.enums.Role;
 import pl.mrstudios.deathrun.arena.checkpoint.Checkpoint;
 import pl.mrstudios.deathrun.arena.pad.TeleportPad;
+import pl.mrstudios.deathrun.arena.selector.MapSelectorService;
 import pl.mrstudios.deathrun.arena.trap.TrapRegistry;
 import pl.mrstudios.deathrun.config.Configuration;
 
@@ -59,6 +60,7 @@ public class CommandDeathRun {
     private final BukkitAudiences audiences;
 
     private final TrapRegistry  trapRegistry;
+    private final MapSelectorService mapSelectorService;
     private final Configuration configuration;
 
     @Inject
@@ -67,12 +69,14 @@ public class CommandDeathRun {
             @NotNull WorldEdit worldEdit,
             @NotNull BukkitAudiences audiences,
             @NotNull TrapRegistry trapRegistry,
+            @NotNull MapSelectorService mapSelectorService,
             @NotNull Configuration configuration
     ) {
         this.plugin = plugin;
         this.worldEdit = worldEdit;
         this.audiences = audiences;
         this.trapRegistry = trapRegistry;
+        this.mapSelectorService = mapSelectorService;
         this.configuration = configuration;
     }
 
@@ -90,6 +94,19 @@ public class CommandDeathRun {
             @Context Player player
     ) {
         this.noArguments(player);
+    }
+
+    @Execute(name = "maps")
+    @Permission("mrstudios.command.deathrun")
+    public void maps(
+            @Context Player player
+    ) {
+        if (this.configuration.map().resolvedMaps().isEmpty()) {
+            this.message(player, this.configuration.language().commandMessageNoMapsConfigured);
+            return;
+        }
+
+        this.mapSelectorService.open(player);
     }
 
     @Execute(name = "leave")

@@ -51,6 +51,7 @@ public class LanguageConfiguration extends OkaeriConfig {
             "<reset>    <gold>DeathRun <dark_gray>(v<version>) <gray>by <white>MrStudios Industries",
             "<reset>",
             "<reset> <b>*</b> <white>/deathrun help",
+            "<reset> <b>*</b> <white>/deathrun maps",
             "<reset> <b>*</b> <white>/deathrun leave",
             "<reset> <b>*</b> <white>/deathrun setup",
             "<reset>"
@@ -82,6 +83,21 @@ public class LanguageConfiguration extends OkaeriConfig {
     public String commandMessageTrapLookAtButton = "<reset> <dark_red><b>*</b> <red>You must look at button that is activating trap.";
     public String commandMessageTrapNotExists = "<reset> <dark_red><b>*</b> <red>Trap <dark_red><type> <red>is not exists.";
     public String commandMessageTrapAdded = "<reset> <dark_green><b>*</b> <green>Added trap <dark_green><type> <green>to arena.";
+    public String commandMessageNoMapsConfigured = "<dark_red><b>*</b> <red>No maps are configured yet.";
+
+    public String mapSelectorTitle = "DeathRun Maps";
+    public String mapSelectorMapName = "<gold><name>";
+    public List<String> mapSelectorMapLore = asList(
+            "<gray>World: <white><world>",
+            "<gray>Players: <white><players>/<maxPlayers>",
+            "<gray>Status: <white><status>",
+            "<yellow>Click to join"
+    );
+    public String mapSelectorStatusAvailable = "<green>Available";
+    public String mapSelectorStatusDisabled = "<red>Disabled";
+    public String mapSelectorStatusMissingLobby = "<gold>Missing lobby";
+    public String mapSelectorMapSelected = "<dark_green><b>*</b> <green>Selected map <dark_green><map><green>. Queue integration is next in Phase 2.";
+    public String mapSelectorMapUnavailable = "<dark_red><b>*</b> <red>This map is not available yet.";
 
     public List<String> chatMessageArenaGameStartRunner = asList(
             "<reset>",
