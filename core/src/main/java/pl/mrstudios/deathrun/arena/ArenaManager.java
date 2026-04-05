@@ -66,7 +66,7 @@ public class ArenaManager {
         for (MapConfiguration.MapDefinition map : this.configuration.map().resolvedMaps()) {
             String mapId = this.mapId(map);
             Arena arena = new Arena(this.mapName(map));
-            ArenaServiceRunnable service = new ArenaServiceRunnable(arena, map, this.plugin, this.server, this.audiences, this.configuration);
+            ArenaServiceRunnable service = new ArenaServiceRunnable(arena, map, this, this.plugin, this.server, this.audiences, this.configuration);
             service.runTaskTimer(this.plugin, 0, 20);
             this.runtimesByMapId.put(mapId, new ArenaRuntime(mapId, map, arena, service));
         }
@@ -126,7 +126,7 @@ public class ArenaManager {
             return;
 
         Arena arena = new Arena(this.mapName(map));
-        ArenaServiceRunnable service = new ArenaServiceRunnable(arena, map, this.plugin, this.server, this.audiences, this.configuration);
+        ArenaServiceRunnable service = new ArenaServiceRunnable(arena, map, this, this.plugin, this.server, this.audiences, this.configuration);
         service.runTaskTimer(this.plugin, 0, 20);
         this.runtimesByMapId.put(normalizedMapId, new ArenaRuntime(normalizedMapId, map, arena, service));
     }

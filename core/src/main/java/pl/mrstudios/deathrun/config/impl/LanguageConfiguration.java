@@ -221,6 +221,7 @@ public class LanguageConfiguration extends OkaeriConfig {
 
     public String arenaMoveServerTitle = "<aqua>Waiting..";
     public String arenaMoveServerSubtitle = "<gray>You will be transferred to lobby in <white><endTimer> seconds<gray>.";
+        public String arenaMoveServerChat = "<gray>Game ended, sending you back to lobby...";
 
     @Comment({
             "",

@@ -47,11 +47,13 @@ import static pl.mrstudios.deathrun.api.arena.enums.GameState.*;
 import static pl.mrstudios.deathrun.api.arena.user.enums.Role.DEATH;
 import static pl.mrstudios.deathrun.api.arena.user.enums.Role.RUNNER;
 import static pl.mrstudios.deathrun.api.arena.user.enums.Role.UNKNOWN;
+import static pl.mrstudios.deathrun.util.ChannelUtil.connect;
 
 public class ArenaServiceRunnable extends BukkitRunnable {
 
     private final Arena arena;
         private final MapConfiguration.MapDefinition map;
+        private final ArenaManager arenaManager;
     private final Plugin plugin;
     private final Server server;
     private final BukkitAudiences audiences;
@@ -66,6 +68,7 @@ public class ArenaServiceRunnable extends BukkitRunnable {
     public ArenaServiceRunnable(
             @NotNull Arena arena,
             @NotNull MapConfiguration.MapDefinition map,
+            @NotNull ArenaManager arenaManager,
             @NotNull Plugin plugin,
             @NotNull Server server,
             @NotNull BukkitAudiences audiences,
@@ -74,6 +77,7 @@ public class ArenaServiceRunnable extends BukkitRunnable {
 
         this.arena = arena;
         this.map = map;
+        this.arenaManager = arenaManager;
         this.server = server;
         this.plugin = plugin;
         this.audiences = audiences;
@@ -362,6 +366,17 @@ public class ArenaServiceRunnable extends BukkitRunnable {
 
                 ArenaShutdownStartedEvent event = new ArenaShutdownStartedEvent(this.arena, false);
         this.server.getPluginManager().callEvent(event);
+
+        this.arena.getUsers().stream()
+                .map(IUser::asBukkit)
+                .filter(Objects::nonNull)
+                .toList()
+                .forEach((player) -> {
+                    this.audiences.player(player).sendMessage(miniMessage().deserialize(this.configuration.language().arenaMoveServerChat));
+                    this.arenaManager.leaveCurrentMap(player, false);
+                    connect(this.plugin, player, this.configuration.plugin().server);
+                });
+
                 this.setState(WAITING);
 
     }
