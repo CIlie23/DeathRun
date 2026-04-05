@@ -107,28 +107,31 @@ public class ArenaServiceRunnable extends BukkitRunnable {
     }
 
     protected void stateSwitchToWaiting() {
-                this.resetRoundState();
-                this.map.arenaStartBarrierBlocks
-                                .stream()
-                                .map(Location::getBlock)
-                                .filter((block) -> block.getType() == AIR)
-                                .forEach((block) -> block.setType(org.bukkit.Material.BARRIER));
+        this.resetRoundState();
+        for (int i = 0; i < this.map.arenaStartBarrierBlocks.size(); i++) {
+            Location location = this.map.arenaStartBarrierBlocks.get(i);
+            org.bukkit.Material restoreMaterial = i < this.map.arenaStartBarrierRestoreMaterials.size()
+                    ? this.map.arenaStartBarrierRestoreMaterials.get(i)
+                    : org.bukkit.Material.BARRIER;
 
-                this.arena.getUsers().stream()
-                                .map(IUser::asBukkit)
-                                .filter(Objects::nonNull)
-                                .forEach((player) -> {
-                                        player.getInventory().clear();
-                                        player.setAllowFlight(false);
-                                        player.teleport(this.map.arenaWaitingLobbyLocation);
-                                });
+            location.getBlock().setType(restoreMaterial);
+        }
 
-                this.arena.getUsers().forEach((user) -> {
-                        user.setDeaths(0);
-                        user.setRole(UNKNOWN);
-                        if (!this.map.arenaCheckpoints.isEmpty())
-                                user.setCheckpoint(this.map.arenaCheckpoints.get(0));
+        this.arena.getUsers().stream()
+                .map(IUser::asBukkit)
+                .filter(Objects::nonNull)
+                .forEach((player) -> {
+                    player.getInventory().clear();
+                    player.setAllowFlight(false);
+                    player.teleport(this.map.arenaWaitingLobbyLocation);
                 });
+
+        this.arena.getUsers().forEach((user) -> {
+            user.setDeaths(0);
+            user.setRole(UNKNOWN);
+            if (!this.map.arenaCheckpoints.isEmpty())
+                user.setCheckpoint(this.map.arenaCheckpoints.get(0));
+        });
     }
 
     /* Starting */

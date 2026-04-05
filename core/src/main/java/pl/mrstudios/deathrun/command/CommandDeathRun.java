@@ -13,6 +13,8 @@ import net.lingala.zip4j.ZipFile;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
+import org.bukkit.World;
+import org.bukkit.WorldCreator;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
@@ -27,20 +29,29 @@ import pl.mrstudios.deathrun.arena.pad.TeleportPad;
 import pl.mrstudios.deathrun.arena.selector.MapSelectorService;
 import pl.mrstudios.deathrun.arena.trap.TrapRegistry;
 import pl.mrstudios.deathrun.config.Configuration;
+import pl.mrstudios.deathrun.config.impl.MapConfiguration;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 import static com.sk89q.worldedit.bukkit.BukkitAdapter.adapt;
 import static java.lang.String.join;
+import static java.util.Objects.requireNonNull;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.createFile;
+import static java.nio.file.Files.deleteIfExists;
+import static java.nio.file.Files.exists;
 import static java.nio.file.Paths.get;
 import static java.util.Collections.emptyList;
 import static java.util.Optional.ofNullable;
 import static java.util.stream.Stream.of;
 import static net.kyori.adventure.text.minimessage.MiniMessage.miniMessage;
+import static org.apache.commons.io.FileUtils.deleteDirectory;
 import static org.bukkit.Material.*;
 import static pl.mrstudios.deathrun.api.arena.user.enums.Role.DEATH;
 import static pl.mrstudios.deathrun.api.arena.user.enums.Role.RUNNER;
@@ -64,6 +75,7 @@ public class CommandDeathRun {
     private final ArenaManager arenaManager;
     private final MapSelectorService mapSelectorService;
     private final Configuration configuration;
+    private final Map<UUID, String> setupMapSelection = new HashMap<>();
 
     @Inject
     public CommandDeathRun(
@@ -128,15 +140,15 @@ public class CommandDeathRun {
     public void noArgumentsSetup(
             @Context Player player
     ) {
-
-        if (!this.configuration.map().arenaSetupEnabled) {
-            this.message(player, this.configuration.language().commandMessageSetupDisabled);
-            return;
-        }
+        this.configuration.map().ensureMapsMutable();
 
         String content = join("<br>", this.configuration.language().commandHelpSetupLines)
             .replace("<version>", this.plugin.getDescription().getVersion());
         this.message(player, content);
+
+        MapConfiguration.MapDefinition map = this.selectedMapForSetup(player, false);
+        if (map != null)
+            this.message(player, this.configuration.language().commandMessageSetupMapSelected.replace("<map>", map.id));
     }
 
     @Execute(name = "setup help")
@@ -147,19 +159,428 @@ public class CommandDeathRun {
         this.noArgumentsSetup(player);
     }
 
+    @Execute(name = "setup maps list")
+    @Permission("mrstudios.command.deathrun.setup")
+    public void setupMapsList(
+            @Context Player player
+    ) {
+        this.configuration.map().ensureMapsMutable();
+        List<MapConfiguration.MapDefinition> maps = this.configuration.map().resolvedMaps();
+        if (maps.isEmpty()) {
+            this.message(player, this.configuration.language().commandMessageSetupMapListEmpty);
+            return;
+        }
+
+        this.message(player, "<gold>[DR]</gold> <gray>Configured maps:");
+        for (MapConfiguration.MapDefinition map : maps) {
+            this.message(player, this.configuration.language().commandMessageSetupMapListLine
+                    .replace("<id>", this.safe(map.id))
+                    .replace("<name>", this.safe(map.name))
+                    .replace("<world>", this.safe(map.world))
+                    .replace("<state>", map.arenaSetupEnabled
+                            ? this.configuration.language().commandMessageSetupMapStateEnabled
+                            : this.configuration.language().commandMessageSetupMapStateDisabled));
+        }
+    }
+
+    @Execute(name = "setup maps use")
+    @Permission("mrstudios.command.deathrun.setup")
+    public void setupMapsUse(
+            @Context Player player,
+            @Arg("id") String id
+    ) {
+        this.configuration.map().ensureMapsMutable();
+        MapConfiguration.MapDefinition map = this.configuration.map().getMapById(id);
+        if (map == null) {
+            this.message(player, this.configuration.language().commandMessageSetupMapMissing.replace("<map>", id));
+            return;
+        }
+
+        this.setupMapSelection.put(player.getUniqueId(), this.configuration.map().normalizedMapId(map.id));
+        this.message(player, this.configuration.language().commandMessageSetupMapSelected.replace("<map>", map.id));
+    }
+
+    @Execute(name = "setup maps create")
+    @Permission("mrstudios.command.deathrun.setup")
+    public void setupMapsCreate(
+            @Context Player player,
+            @Arg("id") String id,
+            @Arg("world") String worldName
+    ) {
+        this.configuration.map().ensureMapsMutable();
+        String normalized = this.configuration.map().normalizedMapId(id);
+        if (this.configuration.map().getMapById(normalized) != null) {
+            this.message(player, this.configuration.language().commandMessageSetupMapAlreadyExists.replace("<map>", normalized));
+            return;
+        }
+
+        World world = this.plugin.getServer().getWorld(worldName);
+        if (world == null) {
+            this.message(player, this.configuration.language().commandMessageSetupMapInvalidWorld.replace("<world>", worldName));
+            return;
+        }
+
+        MapConfiguration.MapDefinition map = new MapConfiguration.MapDefinition();
+        map.id = normalized;
+        map.name = id;
+        map.world = world.getName();
+        map.arenaSetupEnabled = true;
+
+        this.configuration.map().maps.add(map);
+        this.setupMapSelection.put(player.getUniqueId(), map.id);
+        this.configuration.map().save();
+
+        this.message(player, this.configuration.language().commandMessageSetupMapCreated
+                .replace("<map>", map.id)
+                .replace("<world>", map.world));
+    }
+
+    @Execute(name = "setup maps delete")
+    @Permission("mrstudios.command.deathrun.setup")
+    public void setupMapsDelete(
+            @Context Player player,
+            @Arg("id") String id
+    ) {
+        this.configuration.map().ensureMapsMutable();
+        if (this.configuration.map().maps.size() <= 1) {
+            this.message(player, this.configuration.language().commandMessageSetupMapDeleteLastBlocked);
+            return;
+        }
+
+        MapConfiguration.MapDefinition map = this.configuration.map().getMapById(id);
+        if (map == null) {
+            this.message(player, this.configuration.language().commandMessageSetupMapMissing.replace("<map>", id));
+            return;
+        }
+
+        this.configuration.map().maps.removeIf((candidate) -> this.configuration.map().normalizedMapId(candidate.id).equals(this.configuration.map().normalizedMapId(map.id)));
+        this.setupMapSelection.values().removeIf((selected) -> this.configuration.map().normalizedMapId(selected).equals(this.configuration.map().normalizedMapId(map.id)));
+        this.configuration.map().save();
+
+        this.message(player, this.configuration.language().commandMessageSetupMapDeleted.replace("<map>", map.id));
+    }
+
+    @Execute(name = "setup maps enable")
+    @Permission("mrstudios.command.deathrun.setup")
+    public void setupMapsEnable(
+            @Context Player player,
+            @Arg("id") String id
+    ) {
+        this.configuration.map().ensureMapsMutable();
+        MapConfiguration.MapDefinition map = this.configuration.map().getMapById(id);
+        if (map == null) {
+            this.message(player, this.configuration.language().commandMessageSetupMapMissing.replace("<map>", id));
+            return;
+        }
+
+        map.arenaSetupEnabled = true;
+        this.configuration.map().save();
+        this.message(player, this.configuration.language().commandMessageSetupMapEnabled.replace("<map>", map.id));
+    }
+
+    @Execute(name = "setup maps disable")
+    @Permission("mrstudios.command.deathrun.setup")
+    public void setupMapsDisable(
+            @Context Player player,
+            @Arg("id") String id
+    ) {
+        this.configuration.map().ensureMapsMutable();
+        MapConfiguration.MapDefinition map = this.configuration.map().getMapById(id);
+        if (map == null) {
+            this.message(player, this.configuration.language().commandMessageSetupMapMissing.replace("<map>", id));
+            return;
+        }
+
+        List<String> issues = this.mapPromotionIssues(map, true);
+        if (!issues.isEmpty()) {
+            this.message(player, this.configuration.language().commandMessageSetupMapPreflightFailed
+                    .replace("<map>", this.safe(map.id))
+                    .replace("<issues>", String.join(", ", issues)));
+            return;
+        }
+
+        map.arenaSetupEnabled = false;
+        this.configuration.map().save();
+        this.message(player, this.configuration.language().commandMessageSetupMapPreflightPassed.replace("<map>", this.safe(map.id)));
+        this.message(player, this.configuration.language().commandMessageSetupMapDisabled.replace("<map>", map.id));
+    }
+
+    @Execute(name = "setup maps restore")
+    @Permission("mrstudios.command.deathrun.setup")
+    public void setupMapsRestore(
+            @Context Player player,
+            @Arg("id") String id
+    ) {
+        this.configuration.map().ensureMapsMutable();
+        MapConfiguration.MapDefinition map = this.configuration.map().getMapById(id);
+        if (map == null) {
+            this.message(player, this.configuration.language().commandMessageSetupMapMissing.replace("<map>", id));
+            return;
+        }
+
+        if (this.arenaManager.playersInMap(map.id) > 0) {
+            this.message(player, this.configuration.language().commandMessageSetupMapRestorePlayersPresent);
+            return;
+        }
+
+        String worldName = map.world;
+        if (worldName == null || worldName.isBlank()) {
+            this.message(player, this.configuration.language().commandMessageSetupMapRestoreWorldMissing.replace("<world>", "unknown"));
+            return;
+        }
+
+        Path backupZip = get(this.plugin.getDataFolder().toString(), "backup", worldName + ".zip");
+        if (!exists(backupZip)) {
+            this.message(player, this.configuration.language().commandMessageSetupMapRestoreMissingBackup.replace("<world>", worldName));
+            return;
+        }
+
+        try {
+            World loadedWorld = this.plugin.getServer().getWorld(worldName);
+            if (loadedWorld != null && !this.plugin.getServer().unloadWorld(loadedWorld, false)) {
+                this.message(player, this.configuration.language().commandMessageSetupMapRestoreUnloadFailed.replace("<world>", worldName));
+                return;
+            }
+
+            Path worldFolder = this.plugin.getServer().getWorldContainer().toPath().resolve(worldName);
+            if (exists(worldFolder))
+                deleteDirectory(worldFolder.toFile());
+
+            try (ZipFile zipFile = new ZipFile(backupZip.toFile())) {
+                zipFile.extractAll(this.plugin.getServer().getWorldContainer().getAbsolutePath());
+            }
+
+            World restoredWorld = this.plugin.getServer().createWorld(new WorldCreator(worldName));
+            if (restoredWorld == null) {
+                this.message(player, this.configuration.language().commandMessageSetupMapRestoreLoadFailed.replace("<world>", worldName));
+                return;
+            }
+
+            this.rebindMapWorldReferences(map, restoredWorld);
+            this.configuration.map().save();
+            this.arenaManager.reloadRuntime(map.id);
+
+            this.message(player, this.configuration.language().commandMessageSetupMapRestoreSuccess
+                    .replace("<map>", map.id)
+                    .replace("<world>", worldName));
+        } catch (Exception exception) {
+            this.message(player, this.configuration.language().commandMessageSetupMapRestoreFailed
+                    .replace("<reason>", requireNonNull(exception.getMessage(), "unknown")));
+        }
+    }
+
+    @Execute(name = "setup maps check")
+    @Permission("mrstudios.command.deathrun.setup")
+    public void setupMapsCheck(
+            @Context Player player
+    ) {
+        this.configuration.map().ensureMapsMutable();
+        this.message(player, this.configuration.language().commandMessageSetupMapCheckHeader);
+
+        boolean hasIssues = false;
+        for (MapConfiguration.MapDefinition map : this.configuration.map().resolvedMaps()) {
+            List<String> issues = this.mapIssues(map);
+            if (issues.isEmpty()) {
+                this.message(player, this.configuration.language().commandMessageSetupMapCheckEntryOk
+                        .replace("<map>", this.safe(map.id)));
+                continue;
+            }
+
+            hasIssues = true;
+            this.message(player, this.configuration.language().commandMessageSetupMapCheckEntryIssues
+                    .replace("<map>", this.safe(map.id))
+                    .replace("<issues>", String.join(", ", issues)));
+        }
+
+        if (!hasIssues)
+            this.message(player, this.configuration.language().commandMessageSetupMapCheckNoIssues);
+    }
+
+    @Execute(name = "setup maps check")
+    @Permission("mrstudios.command.deathrun.setup")
+    public void setupMapsCheckSingle(
+            @Context Player player,
+            @Arg("id") String id
+    ) {
+        this.configuration.map().ensureMapsMutable();
+        MapConfiguration.MapDefinition map = this.configuration.map().getMapById(id);
+        if (map == null) {
+            this.message(player, this.configuration.language().commandMessageSetupMapMissing.replace("<map>", id));
+            return;
+        }
+
+        this.message(player, this.configuration.language().commandMessageSetupMapCheckHeader);
+        List<String> issues = this.mapIssues(map);
+        if (issues.isEmpty()) {
+            this.message(player, this.configuration.language().commandMessageSetupMapCheckEntryOk
+                    .replace("<map>", this.safe(map.id)));
+            this.message(player, this.configuration.language().commandMessageSetupMapCheckNoIssues);
+            return;
+        }
+
+        this.message(player, this.configuration.language().commandMessageSetupMapCheckEntryIssues
+                .replace("<map>", this.safe(map.id))
+                .replace("<issues>", String.join(", ", issues)));
+    }
+
+    @Execute(name = "setup maps status")
+    @Permission("mrstudios.command.deathrun.setup")
+    public void setupMapsStatus(
+            @Context Player player
+    ) {
+        this.configuration.map().ensureMapsMutable();
+        this.message(player, this.configuration.language().commandMessageSetupMapStatusHeader);
+
+        for (MapConfiguration.MapDefinition map : this.configuration.map().resolvedMaps())
+            this.sendMapStatus(player, map, false);
+    }
+
+    @Execute(name = "setup maps status")
+    @Permission("mrstudios.command.deathrun.setup")
+    public void setupMapsStatusSingle(
+            @Context Player player,
+            @Arg("id") String id
+    ) {
+        this.configuration.map().ensureMapsMutable();
+        MapConfiguration.MapDefinition map = this.configuration.map().getMapById(id);
+        if (map == null) {
+            this.message(player, this.configuration.language().commandMessageSetupMapMissing.replace("<map>", id));
+            return;
+        }
+
+        this.message(player, this.configuration.language().commandMessageSetupMapStatusHeader);
+        this.sendMapStatus(player, map, true);
+    }
+
+    @Execute(name = "setup maps fixbarrier")
+    @Permission("mrstudios.command.deathrun.setup")
+    public void setupMapsFixBarrier(
+            @Context Player player,
+            @Arg("id") String id
+    ) {
+        this.configuration.map().ensureMapsMutable();
+        MapConfiguration.MapDefinition map = this.configuration.map().getMapById(id);
+        if (map == null) {
+            this.message(player, this.configuration.language().commandMessageSetupMapMissing.replace("<map>", id));
+            return;
+        }
+
+        if (map.arenaStartBarrierBlocks.isEmpty()) {
+            this.message(player, this.configuration.language().commandMessageSetupMapFixBarrierNoBarrier.replace("<map>", map.id));
+            return;
+        }
+
+        map.arenaStartBarrierRestoreMaterials = map.arenaStartBarrierBlocks.stream()
+                .map((location) -> location.getBlock().getType())
+                .toList();
+        this.configuration.map().save();
+        this.message(player, this.configuration.language().commandMessageSetupMapFixBarrierSuccess.replace("<map>", map.id));
+    }
+
+    @Execute(name = "setup maps backup")
+    @Permission("mrstudios.command.deathrun.setup")
+    public void setupMapsBackup(
+            @Context Player player,
+            @Arg("id") String id
+    ) {
+        this.configuration.map().ensureMapsMutable();
+        MapConfiguration.MapDefinition map = this.configuration.map().getMapById(id);
+        if (map == null) {
+            this.message(player, this.configuration.language().commandMessageSetupMapMissing.replace("<map>", id));
+            return;
+        }
+
+        String worldName = map.world;
+        if (worldName == null || worldName.isBlank()) {
+            this.message(player, this.configuration.language().commandMessageSetupMapRestoreWorldMissing.replace("<world>", "unknown"));
+            return;
+        }
+
+        World world = this.plugin.getServer().getWorld(worldName);
+        if (world == null) {
+            this.message(player, this.configuration.language().commandMessageSetupMapBackupWorldMissing.replace("<world>", worldName));
+            return;
+        }
+
+        try {
+            this.refreshWorldBackup(worldName, world);
+            this.message(player, this.configuration.language().commandMessageSetupMapBackupSuccess
+                    .replace("<map>", this.safe(map.id))
+                    .replace("<world>", worldName));
+        } catch (Exception exception) {
+            this.message(player, this.configuration.language().commandMessageSetupMapBackupFailed
+                    .replace("<reason>", requireNonNull(exception.getMessage(), "unknown")));
+        }
+    }
+
+    @Execute(name = "setup maps autofix")
+    @Permission("mrstudios.command.deathrun.setup")
+    public void setupMapsAutofix(
+            @Context Player player,
+            @Arg("id") String id
+    ) {
+        this.configuration.map().ensureMapsMutable();
+        MapConfiguration.MapDefinition map = this.configuration.map().getMapById(id);
+        if (map == null) {
+            this.message(player, this.configuration.language().commandMessageSetupMapMissing.replace("<map>", id));
+            return;
+        }
+
+        List<String> actions = new ArrayList<>();
+        boolean configChanged = false;
+
+        if (this.rebuildBarrierSnapshot(map)) {
+            actions.add("barrier-snapshot-refreshed");
+            configChanged = true;
+        } else {
+            actions.add("barrier-snapshot-skipped(no-barrier)");
+        }
+
+        String worldName = map.world;
+        if (worldName != null && !worldName.isBlank()) {
+            World world = this.plugin.getServer().getWorld(worldName);
+            if (world != null) {
+                try {
+                    this.refreshWorldBackup(worldName, world);
+                    actions.add("backup-refreshed");
+                } catch (Exception exception) {
+                    this.message(player, this.configuration.language().commandMessageSetupMapBackupFailed
+                            .replace("<reason>", requireNonNull(exception.getMessage(), "unknown")));
+                    return;
+                }
+            } else {
+                actions.add("backup-skipped(world-not-loaded)");
+            }
+        } else {
+            actions.add("backup-skipped(world-not-set)");
+        }
+
+        if (configChanged)
+            this.configuration.map().save();
+
+        if (actions.isEmpty()) {
+            this.message(player, this.configuration.language().commandMessageSetupMapAutofixNoChanges
+                    .replace("<map>", this.safe(map.id)));
+            return;
+        }
+
+        this.message(player, this.configuration.language().commandMessageSetupMapAutofixApplied
+                .replace("<map>", this.safe(map.id))
+                .replace("<actions>", String.join(", ", actions)));
+    }
+
     @Execute(name = "setup addcheckpoint")
     @Permission("mrstudios.command.deathrun.setup")
     public void addCheckpoint(
             @Context Player player
     ) {
 
-        if (!this.configuration.map().arenaSetupEnabled) {
-            this.message(player, this.configuration.language().commandMessageSetupDisabled);
+        MapConfiguration.MapDefinition map = this.selectedMapForSetup(player, true);
+        if (map == null)
             return;
-        }
 
-        this.configuration.map().arenaCheckpoints.add(
-                new Checkpoint(this.configuration.map().arenaCheckpoints.size(), player.getLocation().toCenterLocation(), this.locations(player))
+        map.arenaCheckpoints.add(
+                new Checkpoint(map.arenaCheckpoints.size(), player.getLocation().toCenterLocation(), this.locations(player))
         );
 
         this.message(player, this.configuration.language().commandMessageCheckpointAdded);
@@ -173,18 +594,17 @@ public class CommandDeathRun {
             @Arg("role") Role role
     ) {
 
-        if (!this.configuration.map().arenaSetupEnabled) {
-            this.message(player, this.configuration.language().commandMessageSetupDisabled);
+        MapConfiguration.MapDefinition map = this.selectedMapForSetup(player, true);
+        if (map == null)
             return;
-        }
 
         switch (role) {
 
             case RUNNER ->
-                    this.configuration.map().arenaRunnerSpawnLocations.add(player.getLocation().toCenterLocation());
+                map.arenaRunnerSpawnLocations.add(player.getLocation().toCenterLocation());
 
             case DEATH ->
-                    this.configuration.map().arenaDeathSpawnLocations.add(player.getLocation().toCenterLocation());
+                map.arenaDeathSpawnLocations.add(player.getLocation().toCenterLocation());
 
             default ->
                     this.message(player, this.configuration.language().commandMessageRoleInvalid);
@@ -246,12 +666,11 @@ public class CommandDeathRun {
             @Arg("name") String name
     ) {
 
-        if (!this.configuration.map().arenaSetupEnabled) {
-            this.message(player, this.configuration.language().commandMessageSetupDisabled);
+        MapConfiguration.MapDefinition map = this.selectedMapForSetup(player, true);
+        if (map == null)
             return;
-        }
 
-        this.configuration.map().arenaName = name;
+        map.name = name;
         this.message(player, this.configuration.language().commandMessageArenaNameSet.replace("<name>", name));
 
     }
@@ -271,17 +690,19 @@ public class CommandDeathRun {
             @Arg("material") Material material
     ) {
 
-        if (!this.configuration.map().arenaSetupEnabled) {
-            this.message(player, this.configuration.language().commandMessageSetupDisabled);
+        MapConfiguration.MapDefinition map = this.selectedMapForSetup(player, true);
+        if (map == null)
             return;
-        }
 
         List<Location> locations = this.locations(player);
 
         if (material != null)
             locations.removeIf((location) -> !location.getBlock().getType().equals(material));
 
-        this.configuration.map().arenaStartBarrierBlocks = locations;
+        map.arenaStartBarrierBlocks = locations;
+        map.arenaStartBarrierRestoreMaterials = locations.stream()
+            .map((location) -> location.getBlock().getType())
+            .toList();
         this.message(player, this.configuration.language().commandMessageStartBarrierSet);
 
     }
@@ -292,12 +713,12 @@ public class CommandDeathRun {
             @Context Player player
     ) {
 
-        if (!this.configuration.map().arenaSetupEnabled) {
-            this.message(player, this.configuration.language().commandMessageSetupDisabled);
+        MapConfiguration.MapDefinition map = this.selectedMapForSetup(player, true);
+        if (map == null)
             return;
-        }
 
-        this.configuration.map().arenaWaitingLobbyLocation = player.getLocation().toCenterLocation();
+        map.world = player.getWorld().getName();
+        map.arenaWaitingLobbyLocation = player.getLocation().toCenterLocation();
         this.message(player, this.configuration.language().commandMessageWaitingLobbySet);
 
     }
@@ -308,12 +729,17 @@ public class CommandDeathRun {
             @Context Player player
     ) {
 
-        if (!this.configuration.map().arenaSetupEnabled) {
-            this.message(player, this.configuration.language().commandMessageSetupDisabled);
+        MapConfiguration.MapDefinition map = this.selectedMapForSetup(player, true);
+        if (map == null)
+            return;
+
+        List<Location> locations = locations(player);
+        if (locations.isEmpty()) {
+            this.message(player, this.configuration.language().commandMessageTrapLookAtButton);
             return;
         }
 
-        this.configuration.map().teleportPads.add(new TeleportPad(locations(player).get(0), player.getLocation().toCenterLocation().add(0, -0.5, 0)));
+        map.teleportPads.add(new TeleportPad(locations.get(0), player.getLocation().toCenterLocation().add(0, -0.5, 0)));
         this.message(player, this.configuration.language().commandMessageTeleportPadAdded);
 
     }
@@ -324,27 +750,40 @@ public class CommandDeathRun {
             @Context Player player
     ) {
 
-        if (!this.configuration.map().arenaSetupEnabled) {
-            this.message(player, this.configuration.language().commandMessageSetupDisabled);
+        MapConfiguration.MapDefinition map = this.selectedMapForSetup(player, true);
+        if (map == null)
+            return;
+
+        if (map.world == null || map.world.isBlank())
+            map.world = player.getWorld().getName();
+
+        this.rebuildBarrierSnapshot(map);
+
+        List<String> issues = this.mapPromotionIssues(map, false);
+        if (!issues.isEmpty()) {
+            this.message(player, this.configuration.language().commandMessageSetupMapPreflightFailed
+                    .replace("<map>", this.safe(map.id))
+                    .replace("<issues>", String.join(", ", issues)));
             return;
         }
 
-        this.configuration.map().arenaSetupEnabled = false;
-        this.configuration.map().save();
-
-        Path path = get(this.plugin.getDataFolder().toString(), "backup/", player.getWorld().getName() + ".zip");
+        String worldName = map.world == null || map.world.isBlank() ? player.getWorld().getName() : map.world;
+        World world = this.plugin.getServer().getWorld(worldName);
+        if (world == null) {
+            this.message(player, this.configuration.language().commandMessageSetupMapBackupWorldMissing.replace("<world>", worldName));
+            return;
+        }
 
         try {
-            createDirectories(path.getParent());
-            createFile(path);
-        } catch (@NotNull Exception exception) {
+            this.refreshWorldBackup(worldName, world);
+        } catch (Exception exception) {
             throw new RuntimeException("Unable to save world backup due to an exception.", exception);
         }
 
-        try (ZipFile zipFile = new ZipFile(path.toString())) {
-            zipFile.addFolder(player.getWorld().getWorldFolder());
-        } catch (@NotNull Exception ignored) {}
+        map.arenaSetupEnabled = false;
+        this.configuration.map().save();
 
+        this.message(player, this.configuration.language().commandMessageSetupMapPreflightPassed.replace("<map>", this.safe(map.id)));
         this.message(player, this.configuration.language().commandMessageSaveSuccess);
 
     }
@@ -385,10 +824,9 @@ public class CommandDeathRun {
             @Nullable Object... objects
     ) throws Exception {
 
-        if (!this.configuration.map().arenaSetupEnabled) {
-            this.message(player, this.configuration.language().commandMessageSetupDisabled);
+        MapConfiguration.MapDefinition map = this.selectedMapForSetup(player, true);
+        if (map == null)
             return;
-        }
 
         Block target = player.getTargetBlock(null, 250);
         List<Location> locations = this.locations(player);
@@ -421,9 +859,211 @@ public class CommandDeathRun {
         trap.setLocations(trap.filter(locations, objects));
         ofNullable(objects).ifPresent(trap::setExtra);
 
-        this.configuration.map().arenaTraps.add(trap);
+        map.arenaTraps.add(trap);
         this.message(player, this.configuration.language().commandMessageTrapAdded.replace("<type>", type.toUpperCase()));
 
     }
+
+    private @Nullable MapConfiguration.MapDefinition selectedMapForSetup(
+            @NotNull Player player,
+            boolean requireSetupEnabled
+    ) {
+        this.configuration.map().ensureMapsMutable();
+        List<MapConfiguration.MapDefinition> maps = this.configuration.map().resolvedMaps();
+        if (maps.isEmpty()) {
+            this.message(player, this.configuration.language().commandMessageSetupMapListEmpty);
+            return null;
+        }
+
+        String selected = this.setupMapSelection.computeIfAbsent(
+                player.getUniqueId(),
+                (key) -> this.configuration.map().normalizedMapId(maps.get(0).id)
+        );
+
+        MapConfiguration.MapDefinition map = this.configuration.map().getMapById(selected);
+        if (map == null) {
+            this.setupMapSelection.put(player.getUniqueId(), this.configuration.map().normalizedMapId(maps.get(0).id));
+            map = maps.get(0);
+        }
+
+        if (requireSetupEnabled && !map.arenaSetupEnabled) {
+            this.message(player, this.configuration.language().commandMessageSetupMapLocked);
+            return null;
+        }
+
+        return map;
+    }
+
+    private String safe(String value) {
+        return value == null || value.isBlank() ? "-" : value;
+    }
+
+    private void refreshWorldBackup(
+            @NotNull String worldName,
+            @NotNull World world
+    ) throws Exception {
+        Path path = get(this.plugin.getDataFolder().toString(), "backup/", worldName + ".zip");
+        createDirectories(path.getParent());
+        deleteIfExists(path);
+        createFile(path);
+
+        try (ZipFile zipFile = new ZipFile(path.toString())) {
+            zipFile.addFolder(world.getWorldFolder());
+        }
+    }
+
+    private boolean rebuildBarrierSnapshot(
+            @NotNull MapConfiguration.MapDefinition map
+    ) {
+        if (map.arenaStartBarrierBlocks.isEmpty())
+            return false;
+
+        map.arenaStartBarrierRestoreMaterials = map.arenaStartBarrierBlocks.stream()
+                .map((location) -> location.getBlock().getType())
+                .toList();
+        return true;
+    }
+
+    private @NotNull List<String> mapIssues(
+            @NotNull MapConfiguration.MapDefinition map
+    ) {
+        List<String> issues = new ArrayList<>();
+
+        if (map.world == null || map.world.isBlank()) {
+            issues.add("world-not-set");
+        } else {
+            if (this.plugin.getServer().getWorld(map.world) == null)
+                issues.add("world-not-loaded");
+
+            Path backupPath = get(this.plugin.getDataFolder().toString(), "backup", map.world + ".zip");
+            if (!exists(backupPath))
+                issues.add("missing-backup");
+        }
+
+        if (map.arenaWaitingLobbyLocation == null)
+            issues.add("missing-waiting-lobby");
+
+        if (map.arenaRunnerSpawnLocations.isEmpty())
+            issues.add("missing-runner-spawn");
+
+        if (map.arenaDeathSpawnLocations.isEmpty())
+            issues.add("missing-death-spawn");
+
+        if (map.arenaCheckpoints.isEmpty())
+            issues.add("missing-checkpoints");
+
+        if (map.arenaStartBarrierBlocks.isEmpty())
+            issues.add("missing-start-barrier");
+
+        if (!map.arenaStartBarrierBlocks.isEmpty() && map.arenaStartBarrierRestoreMaterials.size() != map.arenaStartBarrierBlocks.size())
+            issues.add("barrier-restore-size-mismatch");
+
+        if (map.arenaSetupEnabled)
+            issues.add("setup-enabled");
+
+        return issues.stream().distinct().collect(Collectors.toList());
+    }
+
+    private @NotNull List<String> mapPromotionIssues(
+            @NotNull MapConfiguration.MapDefinition map,
+            boolean requireBackup
+    ) {
+        List<String> issues = this.mapIssues(map).stream()
+                .filter((issue) -> switch (issue) {
+                    case "world-not-set",
+                         "world-not-loaded",
+                         "missing-waiting-lobby",
+                         "missing-runner-spawn",
+                         "missing-death-spawn",
+                         "missing-checkpoints",
+                         "missing-start-barrier",
+                         "barrier-restore-size-mismatch" -> true;
+                    case "missing-backup" -> requireBackup;
+                    default -> false;
+                })
+                .collect(Collectors.toCollection(ArrayList::new));
+
+        if (map.world == null || map.world.isBlank())
+            issues.add("world-not-set");
+
+        return issues.stream().distinct().toList();
+    }
+
+    private void sendMapStatus(
+            @NotNull Player player,
+            @NotNull MapConfiguration.MapDefinition map,
+            boolean includeIssueLine
+    ) {
+        List<String> issues = this.mapIssues(map);
+        String mapId = this.configuration.map().normalizedMapId(this.safe(map.id));
+        ArenaManager.ArenaRuntime runtime = this.arenaManager.runtimeByMapId(mapId);
+
+        String state = runtime == null ? "RUNTIME_MISSING" : runtime.arena().getGameState().name();
+        int players = runtime == null ? 0 : runtime.arena().getUsers().size();
+        int maxPlayers = this.arenaManager.maxPlayers(map);
+        String setup = map.arenaSetupEnabled ? "setup-enabled" : "setup-disabled";
+        String health = issues.isEmpty() ? "healthy" : "issues(" + issues.size() + ")";
+
+        this.message(player, this.configuration.language().commandMessageSetupMapStatusLine
+                .replace("<map>", this.safe(map.id))
+                .replace("<state>", state)
+                .replace("<players>", String.valueOf(players))
+                .replace("<maxPlayers>", String.valueOf(maxPlayers))
+                .replace("<setup>", setup)
+                .replace("<health>", health));
+
+        if (includeIssueLine && !issues.isEmpty())
+            this.message(player, this.configuration.language().commandMessageSetupMapStatusIssues
+                    .replace("<issues>", String.join(", ", issues)));
+    }
+
+        private void rebindMapWorldReferences(
+            @NotNull MapConfiguration.MapDefinition map,
+            @NotNull World world
+        ) {
+        if (map.arenaWaitingLobbyLocation != null)
+            map.arenaWaitingLobbyLocation = this.withWorld(map.arenaWaitingLobbyLocation, world);
+
+        map.arenaRunnerSpawnLocations = map.arenaRunnerSpawnLocations.stream()
+            .map((location) -> this.withWorld(location, world))
+            .toList();
+
+        map.arenaDeathSpawnLocations = map.arenaDeathSpawnLocations.stream()
+            .map((location) -> this.withWorld(location, world))
+            .toList();
+
+        map.arenaStartBarrierBlocks = map.arenaStartBarrierBlocks.stream()
+            .map((location) -> this.withWorld(location, world))
+            .toList();
+
+        map.arenaCheckpoints = map.arenaCheckpoints.stream()
+            .map((checkpoint) -> new Checkpoint(
+                checkpoint.id(),
+                this.withWorld(checkpoint.spawn(), world),
+                checkpoint.locations().stream().map((location) -> this.withWorld(location, world)).toList()
+            ))
+            .toList();
+
+        map.teleportPads = map.teleportPads.stream()
+            .map((teleportPad) -> new TeleportPad(
+                this.withWorld(teleportPad.padLocation(), world),
+                this.withWorld(teleportPad.teleportLocation(), world)
+            ))
+            .toList();
+
+        map.arenaTraps.forEach((trap) -> {
+            trap.setButton(this.withWorld(trap.getButton(), world));
+            trap.setLocations(trap.getLocations().stream().map((location) -> this.withWorld(location, world)).toList());
+        });
+        }
+
+        private @NotNull Location withWorld(
+            @NotNull Location location,
+            @NotNull World world
+        ) {
+        Location clone = location.clone();
+        clone.setWorld(world);
+        return clone;
+        }
 
 }

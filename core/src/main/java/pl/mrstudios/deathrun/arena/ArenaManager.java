@@ -53,6 +53,7 @@ public class ArenaManager {
     }
 
     public void initialize() {
+        this.runtimesByMapId.values().forEach((runtime) -> runtime.service().cancel());
         this.runtimesByMapId.clear();
 
         for (MapConfiguration.MapDefinition map : this.configuration.map().resolvedMaps()) {
@@ -103,6 +104,24 @@ public class ArenaManager {
     ) {
         ArenaRuntime runtime = this.runtimeByMapId(mapId);
         return runtime == null ? 0 : runtime.arena().getUsers().size();
+    }
+
+    public void reloadRuntime(
+            @NotNull String mapId
+    ) {
+        String normalizedMapId = mapId.toLowerCase(Locale.ROOT);
+        ArenaRuntime previous = this.runtimesByMapId.remove(normalizedMapId);
+        if (previous != null)
+            previous.service().cancel();
+
+        MapConfiguration.MapDefinition map = this.configuration.map().getMapById(normalizedMapId);
+        if (map == null)
+            return;
+
+        Arena arena = new Arena(this.mapName(map));
+        ArenaServiceRunnable service = new ArenaServiceRunnable(arena, map, this.plugin, this.server, this.audiences, this.configuration);
+        service.runTaskTimer(this.plugin, 0, 20);
+        this.runtimesByMapId.put(normalizedMapId, new ArenaRuntime(normalizedMapId, map, arena, service));
     }
 
     public @NotNull JoinResult joinMap(

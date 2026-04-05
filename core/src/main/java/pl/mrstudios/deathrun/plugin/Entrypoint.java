@@ -136,6 +136,17 @@ public class Entrypoint extends JavaPlugin {
 
                 /* Suggesters */
                 .argumentSuggestion(String.class, ArgumentKey.of("type"), SuggestionResult.of(this.trapRegistry.trapRegistryKeys()))
+                .argumentSuggestion(String.class, ArgumentKey.of("id"), SuggestionResult.of(
+                    this.configuration.map().resolvedMaps().stream()
+                        .map((map) -> map.id)
+                        .filter(java.util.Objects::nonNull)
+                        .toList()
+                ))
+                .argumentSuggestion(String.class, ArgumentKey.of("world"), SuggestionResult.of(
+                    this.getServer().getWorlds().stream()
+                        .map(org.bukkit.World::getName)
+                        .toList()
+                ))
 
                 /* Build */
                 .build();

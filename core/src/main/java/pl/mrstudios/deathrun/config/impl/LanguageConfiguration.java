@@ -60,6 +60,18 @@ public class LanguageConfiguration extends OkaeriConfig {
             "<reset>",
             "<reset>    <gold>DeathRun <dark_gray>(v<version>) <gray>by <white>MrStudios Industries",
             "<reset>",
+            "<reset> <b>*</b> <white>/deathrun setup maps list",
+            "<reset> <b>*</b> <white>/deathrun setup maps use <id>",
+            "<reset> <b>*</b> <white>/deathrun setup maps create <id> <world>",
+            "<reset> <b>*</b> <white>/deathrun setup maps delete <id>",
+            "<reset> <b>*</b> <white>/deathrun setup maps enable <id>",
+            "<reset> <b>*</b> <white>/deathrun setup maps disable <id>",
+            "<reset> <b>*</b> <white>/deathrun setup maps restore <id>",
+            "<reset> <b>*</b> <white>/deathrun setup maps check (id)",
+            "<reset> <b>*</b> <white>/deathrun setup maps status (id)",
+            "<reset> <b>*</b> <white>/deathrun setup maps fixbarrier <id>",
+            "<reset> <b>*</b> <white>/deathrun setup maps backup <id>",
+            "<reset> <b>*</b> <white>/deathrun setup maps autofix <id>",
             "<reset> <b>*</b> <white>/deathrun setup help",
             "<reset> <b>*</b> <white>/deathrun setup setname <name>",
             "<reset> <b>*</b> <white>/deathrun setup setwaitinglobby",
@@ -84,6 +96,44 @@ public class LanguageConfiguration extends OkaeriConfig {
     public String commandMessageTrapNotExists = "<reset> <dark_red><b>*</b> <red>Trap <dark_red><type> <red>is not exists.";
     public String commandMessageTrapAdded = "<reset> <dark_green><b>*</b> <green>Added trap <dark_green><type> <green>to arena.";
     public String commandMessageNoMapsConfigured = "<dark_red><b>*</b> <red>No maps are configured yet.";
+        public String commandMessageSetupMapSelected = "<reset> <dark_green><b>*</b> <green>Selected setup map <dark_green><map><green>.";
+        public String commandMessageSetupMapCreated = "<reset> <dark_green><b>*</b> <green>Created map <dark_green><map><green> in world <dark_green><world><green>.";
+        public String commandMessageSetupMapDeleted = "<reset> <dark_green><b>*</b> <green>Deleted map <dark_green><map><green>.";
+        public String commandMessageSetupMapEnabled = "<reset> <dark_green><b>*</b> <green>Enabled setup mode for map <dark_green><map><green>.";
+        public String commandMessageSetupMapDisabled = "<reset> <dark_green><b>*</b> <green>Disabled setup mode for map <dark_green><map><green>.";
+        public String commandMessageSetupMapRestoreSuccess = "<reset> <dark_green><b>*</b> <green>Restored world <dark_green><world> <green>for map <dark_green><map><green>.";
+        public String commandMessageSetupMapRestoreMissingBackup = "<reset> <dark_red><b>*</b> <red>Missing backup zip for world <dark_red><world><red>.";
+        public String commandMessageSetupMapRestoreWorldMissing = "<reset> <dark_red><b>*</b> <red>Map world <dark_red><world> <red>is not set.";
+        public String commandMessageSetupMapRestorePlayersPresent = "<reset> <dark_red><b>*</b> <red>Cannot restore map while players are queued or in-game.";
+        public String commandMessageSetupMapRestoreUnloadFailed = "<reset> <dark_red><b>*</b> <red>Could not unload world <dark_red><world><red>.";
+        public String commandMessageSetupMapRestoreLoadFailed = "<reset> <dark_red><b>*</b> <red>Could not load restored world <dark_red><world><red>.";
+        public String commandMessageSetupMapRestoreFailed = "<reset> <dark_red><b>*</b> <red>Map restore failed: <dark_red><reason>";
+        public String commandMessageSetupMapCheckHeader = "<gold>[DR]</gold> <gray>Map health check:";
+        public String commandMessageSetupMapCheckEntryOk = "<reset> <dark_green><b>*</b> <green><map> <gray>- healthy";
+        public String commandMessageSetupMapCheckEntryIssues = "<reset> <dark_red><b>*</b> <red><map> <gray>- issues: <white><issues>";
+        public String commandMessageSetupMapCheckNoIssues = "<reset> <dark_green><b>*</b> <green>No issues detected.";
+        public String commandMessageSetupMapStatusHeader = "<gold>[DR]</gold> <gray>Map status:";
+        public String commandMessageSetupMapStatusLine = "<reset> <gray>- <white><map> <dark_gray>| state: <white><state> <dark_gray>| players: <white><players>/<maxPlayers> <dark_gray>| setup: <white><setup> <dark_gray>| health: <white><health>";
+        public String commandMessageSetupMapStatusIssues = "<reset>   <dark_gray>issues: <white><issues>";
+        public String commandMessageSetupMapFixBarrierSuccess = "<reset> <dark_green><b>*</b> <green>Rebuilt barrier restore snapshot for <dark_green><map><green>.";
+        public String commandMessageSetupMapFixBarrierNoBarrier = "<reset> <dark_red><b>*</b> <red>Map <dark_red><map> <red>has no configured start barrier blocks.";
+        public String commandMessageSetupMapBackupSuccess = "<reset> <dark_green><b>*</b> <green>Backup refreshed for map <dark_green><map> <green>(world <dark_green><world><green>).";
+        public String commandMessageSetupMapBackupWorldMissing = "<reset> <dark_red><b>*</b> <red>World <dark_red><world> <red>is not loaded.";
+        public String commandMessageSetupMapBackupFailed = "<reset> <dark_red><b>*</b> <red>Backup failed: <dark_red><reason>";
+        public String commandMessageSetupMapAutofixApplied = "<reset> <dark_green><b>*</b> <green>Autofix applied for <dark_green><map><green>: <white><actions>";
+        public String commandMessageSetupMapAutofixNoChanges = "<reset> <gold><b>*</b> <yellow>No autofix actions applied for <gold><map><yellow>.";
+        public String commandMessageSetupMapPreflightFailed = "<reset> <dark_red><b>*</b> <red>Cannot finalize map <dark_red><map><red>. Fix: <white><issues>";
+        public String commandMessageSetupMapPreflightPassed = "<reset> <dark_green><b>*</b> <green>Preflight checks passed for <dark_green><map><green>.";
+        public String commandMessageSetupMapMissing = "<reset> <dark_red><b>*</b> <red>Map <dark_red><map> <red>does not exist.";
+        public String commandMessageSetupMapAlreadyExists = "<reset> <dark_red><b>*</b> <red>Map <dark_red><map> <red>already exists.";
+        public String commandMessageSetupMapInvalidWorld = "<reset> <dark_red><b>*</b> <red>World <dark_red><world> <red>is not loaded.";
+        public String commandMessageSetupMapNoSelection = "<reset> <dark_red><b>*</b> <red>Select setup map first using <white>/deathrun setup maps use <id><red>.";
+        public String commandMessageSetupMapLocked = "<reset> <dark_red><b>*</b> <red>Selected map setup is disabled. Re-enable it in map.yml or create a new map.";
+        public String commandMessageSetupMapListLine = "<reset> <gray>- <white><id> <dark_gray>| <white><name> <dark_gray>| <white><world> <dark_gray>| <white><state>";
+        public String commandMessageSetupMapListEmpty = "<reset> <dark_red><b>*</b> <red>No setup maps available.";
+        public String commandMessageSetupMapDeleteLastBlocked = "<reset> <dark_red><b>*</b> <red>You cannot delete the last map.";
+        public String commandMessageSetupMapStateEnabled = "<green>setup-enabled";
+        public String commandMessageSetupMapStateDisabled = "<red>setup-disabled";
 
     public String mapSelectorTitle = "DeathRun Maps";
     public String mapSelectorMapName = "<gold><name>";
