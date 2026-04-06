@@ -4,6 +4,7 @@ import eu.okaeri.configs.OkaeriConfig;
 import eu.okaeri.configs.annotation.Comment;
 import eu.okaeri.configs.annotation.Header;
 import eu.okaeri.configs.annotation.Names;
+import org.bukkit.Location;
 import org.bukkit.Sound;
 import pl.mrstudios.deathrun.arena.booster.Booster;
 import pl.mrstudios.deathrun.arena.booster.BoosterItem;
@@ -43,6 +44,9 @@ public class PluginConfiguration extends OkaeriConfig {
     })
     @Comment({ "Lobby Server Name" })
     public String server = "dr-lobby-1";
+
+        @Comment({ "", "Main hub location used when leaving queue/game. If null, first world spawn is used." })
+        public Location mainHubLocation;
 
     @Comment({ "", "Minimum amount of players that is needed to game start." })
     public int arenaMinPlayers = 5;
@@ -128,10 +132,8 @@ public class PluginConfiguration extends OkaeriConfig {
         public float arenaSoundPlayerFinishedVolume = 1.0f;
         public float arenaSoundPlayerFinishedPitch = 1.0f;
         public boolean arenaBackgroundSongEnabled = false;
-        public Sound arenaBackgroundSongSound = BLOCK_NOTE_BLOCK_HARP;
-        public float arenaBackgroundSongVolume = 0.75f;
-        public int arenaBackgroundSongStepTicks = 10;
-        public List<Float> arenaBackgroundSongNotes = of(1.0f, 1.12f, 1.25f, 1.12f, 1.0f, 0.89f, 1.0f, 1.25f);
+        public String arenaBackgroundSongFileName = "lobby_theme.nbs";
+        public boolean arenaBackgroundSongLoop = true;
     public Sound arenaSoundTrapDelay = ENTITY_VILLAGER_NO;
     public Sound arenaSoundPlayerDeath = ENTITY_SKELETON_DEATH;
 

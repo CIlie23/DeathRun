@@ -4,6 +4,8 @@ import net.kyori.adventure.platform.bukkit.BukkitAudiences;
 import org.bukkit.Bukkit;
 import org.bukkit.Server;
 import org.bukkit.ChatColor;
+import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.plugin.Plugin;
@@ -15,6 +17,8 @@ import pl.mrstudios.deathrun.api.arena.event.arena.ArenaUserJoinedEvent;
 import pl.mrstudios.deathrun.api.arena.event.arena.ArenaUserLeftEvent;
 import pl.mrstudios.deathrun.api.arena.user.IUser;
 import pl.mrstudios.deathrun.arena.user.User;
+import pl.mrstudios.deathrun.arena.sign.SignManager;
+import pl.mrstudios.deathrun.arena.win.WinMapManager;
 import pl.mrstudios.deathrun.config.Configuration;
 import pl.mrstudios.deathrun.config.impl.MapConfiguration;
 
@@ -24,7 +28,6 @@ import static java.lang.Integer.MAX_VALUE;
 import static java.lang.String.valueOf;
 import static net.kyori.adventure.text.minimessage.MiniMessage.miniMessage;
 import static org.bukkit.GameMode.ADVENTURE;
-import static org.bukkit.Material.COMPASS;
 import static org.bukkit.Material.RED_BED;
 import static org.bukkit.inventory.ItemFlag.values;
 import static org.bukkit.potion.PotionEffectType.NIGHT_VISION;
@@ -40,6 +43,8 @@ public class ArenaManager {
     private final Server server;
     private final BukkitAudiences audiences;
     private final Configuration configuration;
+    private final WinMapManager winMapManager;
+    private SignManager signManager;
 
     private final Map<String, ArenaRuntime> runtimesByMapId = new LinkedHashMap<>();
     private final Map<UUID, String> playerMapIndex = new HashMap<>();
@@ -48,12 +53,14 @@ public class ArenaManager {
             @NotNull Plugin plugin,
             @NotNull Server server,
             @NotNull BukkitAudiences audiences,
-            @NotNull Configuration configuration
+            @NotNull Configuration configuration,
+            @NotNull WinMapManager winMapManager
     ) {
         this.plugin = plugin;
         this.server = server;
         this.audiences = audiences;
         this.configuration = configuration;
+        this.winMapManager = winMapManager;
     }
 
     public void initialize() {
@@ -66,10 +73,16 @@ public class ArenaManager {
         for (MapConfiguration.MapDefinition map : this.configuration.map().resolvedMaps()) {
             String mapId = this.mapId(map);
             Arena arena = new Arena(this.mapName(map));
-            ArenaServiceRunnable service = new ArenaServiceRunnable(arena, map, this, this.plugin, this.server, this.audiences, this.configuration);
+            ArenaServiceRunnable service = new ArenaServiceRunnable(arena, map, this, this.winMapManager, this.plugin, this.server, this.audiences, this.configuration);
             service.runTaskTimer(this.plugin, 0, 20);
             this.runtimesByMapId.put(mapId, new ArenaRuntime(mapId, map, arena, service));
         }
+    }
+
+    public void setSignManager(
+            @NotNull SignManager signManager
+    ) {
+        this.signManager = signManager;
     }
 
     public @NotNull Collection<ArenaRuntime> runtimes() {
@@ -126,7 +139,7 @@ public class ArenaManager {
             return;
 
         Arena arena = new Arena(this.mapName(map));
-        ArenaServiceRunnable service = new ArenaServiceRunnable(arena, map, this, this.plugin, this.server, this.audiences, this.configuration);
+        ArenaServiceRunnable service = new ArenaServiceRunnable(arena, map, this, this.winMapManager, this.plugin, this.server, this.audiences, this.configuration);
         service.runTaskTimer(this.plugin, 0, 20);
         this.runtimesByMapId.put(normalizedMapId, new ArenaRuntime(normalizedMapId, map, arena, service));
     }
@@ -135,53 +148,26 @@ public class ArenaManager {
             @NotNull Player player,
             @NotNull String mapId
     ) {
+        if (this.signManager != null)
+            this.signManager.leaveQueue(player);
+
         ArenaRuntime runtime = this.runtimeByMapId(mapId);
-        if (runtime == null) {
-            this.plugin.getLogger().info("[DR-DBG] join rejected: map-unavailable mapId=" + mapId + " player=" + player.getName());
+        if (runtime == null)
             return JoinResult.MAP_UNAVAILABLE;
-        }
 
-        if (!this.isMapConfigured(runtime.map())) {
-            this.plugin.getLogger().info(
-                    "[DR-DBG] join rejected: map-not-ready mapId=" + runtime.mapId()
-                            + " player=" + player.getName()
-                            + " setupEnabled=" + runtime.map().arenaSetupEnabled
-                            + " waitingLobby=" + (runtime.map().arenaWaitingLobbyLocation != null)
-                            + " runnerSpawns=" + runtime.map().arenaRunnerSpawnLocations.size()
-                            + " deathSpawns=" + runtime.map().arenaDeathSpawnLocations.size()
-                            + " checkpoints=" + runtime.map().arenaCheckpoints.size()
-            );
+        if (!this.isMapConfigured(runtime.map()))
             return JoinResult.MAP_NOT_READY;
-        }
 
-        if (runtime.arena().getGameState() != WAITING && runtime.arena().getGameState() != STARTING) {
-            this.plugin.getLogger().info(
-                    "[DR-DBG] join rejected: match-in-progress mapId=" + runtime.mapId()
-                            + " player=" + player.getName()
-                            + " state=" + runtime.arena().getGameState().name()
-            );
+        if (runtime.arena().getGameState() != WAITING && runtime.arena().getGameState() != STARTING)
             return JoinResult.MATCH_IN_PROGRESS;
-        }
 
         int maxPlayers = this.maxPlayers(runtime.map());
-        if (runtime.arena().getUsers().size() >= maxPlayers) {
-            this.plugin.getLogger().info(
-                    "[DR-DBG] join rejected: map-full mapId=" + runtime.mapId()
-                            + " player=" + player.getName()
-                            + " users=" + runtime.arena().getUsers().size()
-                            + " max=" + maxPlayers
-            );
+        if (runtime.arena().getUsers().size() >= maxPlayers)
             return JoinResult.MAP_FULL;
-        }
 
         ArenaRuntime previousRuntime = this.runtimeForPlayer(player);
-        if (previousRuntime != null && previousRuntime.mapId().equalsIgnoreCase(runtime.mapId())) {
-            this.plugin.getLogger().info(
-                    "[DR-DBG] join ignored: already-in-map mapId=" + runtime.mapId()
-                            + " player=" + player.getName()
-            );
+        if (previousRuntime != null && previousRuntime.mapId().equalsIgnoreCase(runtime.mapId()))
             return JoinResult.ALREADY_IN_MAP;
-        }
 
         this.leaveCurrentMap(player, true);
 
@@ -205,12 +191,6 @@ public class ArenaManager {
                 )));
 
         this.server.getPluginManager().callEvent(new ArenaUserJoinedEvent(user, runtime.arena()));
-        this.plugin.getLogger().info(
-            "[DR-DBG] join accepted mapId=" + runtime.mapId()
-                + " player=" + player.getName()
-                + " users=" + runtime.arena().getUsers().size()
-                + " state=" + runtime.arena().getGameState().name()
-        );
         return JoinResult.JOINED;
     }
 
@@ -256,6 +236,8 @@ public class ArenaManager {
                 continue;
 
             runtime.arena().getUsers().remove(user);
+            runtime.service().removeBackgroundSongPlayer(player);
+            this.winMapManager.reclaimMap(player);
 
             if (runtime.arena().getSidebar() != null)
                 runtime.arena().getSidebar().removeViewer(player);
@@ -282,17 +264,90 @@ public class ArenaManager {
         return removed;
     }
 
+    public boolean leaveQueue(
+            @NotNull Player player
+    ) {
+        if (this.signManager == null)
+            return false;
+
+        return this.signManager.leaveQueue(player);
+    }
+
+    public int applyQueuedPlayersForMapStart(
+            @NotNull String mapId
+    ) {
+        if (this.signManager == null)
+            return 0;
+
+        ArenaRuntime runtime = this.runtimeByMapId(mapId);
+        if (runtime == null)
+            return 0;
+
+        int freeSlots = Math.max(0, this.maxPlayers(runtime.map()) - runtime.arena().getUsers().size());
+        if (freeSlots <= 0)
+            return 0;
+
+        int added = 0;
+        for (Player player : this.signManager.drainQueuedPlayers(runtime.mapId(), freeSlots)) {
+            ArenaRuntime previousRuntime = this.runtimeForPlayer(player);
+            if (previousRuntime != null && !previousRuntime.mapId().equalsIgnoreCase(runtime.mapId()))
+                this.leaveCurrentMap(player, true);
+
+            if (runtime.arena().getUser(player) != null)
+                continue;
+
+            runtime.arena().getUsers().add(new User(player));
+            this.playerMapIndex.put(player.getUniqueId(), runtime.mapId());
+
+            this.preparePlayerForWaiting(player, runtime.map());
+
+            if (runtime.arena().getSidebar() != null)
+                runtime.arena().getSidebar().addViewer(player);
+
+            added++;
+        }
+
+        return added;
+    }
+
+    public int queuedPlayersForMap(
+            @NotNull String mapId
+    ) {
+        if (this.signManager == null)
+            return 0;
+
+        return this.signManager.queuedPlayersCount(mapId);
+    }
+
     public void preparePlayerForLobbyTools(
             @NotNull Player player
     ) {
-        player.getInventory().setItem(
-                0,
-                new ItemBuilder(COMPASS)
-                        .name(miniMessage().deserialize(this.configuration.language().arenaItemMapSelectorName))
-                        .itemFlags(values())
-                        .build()
-        );
+        // Map selector compass intentionally disabled; signs are now primary queue flow.
     }
+
+        public void returnPlayerToHub(
+            @NotNull Player player
+        ) {
+        Location target = this.configuration.plugin().mainHubLocation;
+        if (target == null || target.getWorld() == null) {
+            List<World> worlds = this.server.getWorlds();
+            if (!worlds.isEmpty())
+            target = worlds.get(0).getSpawnLocation().toCenterLocation();
+        }
+
+        if (target != null && target.getWorld() != null)
+            player.teleport(target);
+
+        player.getActivePotionEffects().stream()
+            .map(PotionEffect::getType)
+            .forEach(player::removePotionEffect);
+
+        player.getInventory().clear();
+        player.setGameMode(ADVENTURE);
+        player.setAllowFlight(false);
+        player.setFoodLevel(20);
+        player.setSaturation(20.0f);
+        }
 
     public @Nullable Arena primaryArena() {
         return this.runtimesByMapId.values().stream()

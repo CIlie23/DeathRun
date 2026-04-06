@@ -6,6 +6,8 @@ version: "${version}"
 # Dependencies
 softdepend:
   - "WorldEdit"
+depend:
+  - "NoteBlockAPI"
 
 # Commands
 commands:
@@ -41,6 +43,12 @@ permissions:
     default: op
   mrstudios.command.deathrun.setup:
     description: "Allows using /deathrun setup and setup subcommands"
+    default: op
+  deathrun.signs.create:
+    description: "Allows creating DeathRun queue signs"
+    default: op
+  deathrun.signs.break:
+    description: "Allows breaking DeathRun queue signs"
     default: op
 
 # Plugin Data

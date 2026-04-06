@@ -21,7 +21,13 @@ import pl.mrstudios.deathrun.arena.ArenaManager;
 import pl.mrstudios.deathrun.arena.listener.ArenaBoosterListener;
 import pl.mrstudios.deathrun.arena.listener.ArenaCheckpointReachedListener;
 import pl.mrstudios.deathrun.arena.listener.ArenaClickItemListener;
+import pl.mrstudios.deathrun.arena.listener.ArenaInventoryActionListener;
 import pl.mrstudios.deathrun.arena.listener.ArenaMapSelectorListener;
+import pl.mrstudios.deathrun.arena.listener.ArenaSignBreakListener;
+import pl.mrstudios.deathrun.arena.listener.ArenaSignCreateListener;
+import pl.mrstudios.deathrun.arena.listener.ArenaSignInteractListener;
+import pl.mrstudios.deathrun.arena.sign.SignManager;
+import pl.mrstudios.deathrun.arena.win.WinMapManager;
 import pl.mrstudios.deathrun.arena.selector.MapSelectorService;
 import pl.mrstudios.deathrun.arena.trap.TrapRegistry;
 import pl.mrstudios.deathrun.arena.trap.impl.*;
@@ -34,7 +40,11 @@ import pl.mrstudios.deathrun.config.impl.LanguageConfiguration;
 import pl.mrstudios.deathrun.config.impl.MapConfiguration;
 import pl.mrstudios.deathrun.config.impl.PluginConfiguration;
 import pl.mrstudios.deathrun.exception.MissingDependencyException;
+import org.bukkit.map.MapPalette;
+import org.jetbrains.annotations.Nullable;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.util.List;
 
@@ -56,6 +66,10 @@ public class Entrypoint extends JavaPlugin {
 
     private ArenaManager arenaManager;
     private TrapRegistry trapRegistry;
+    private SignManager signManager;
+    private WinMapManager winMapManager;
+    private volatile BufferedImage winParchmentImage;
+    private volatile BufferedImage loseParchmentImage;
 
     private BukkitAudiences audiences;
 
@@ -87,8 +101,16 @@ public class Entrypoint extends JavaPlugin {
         /* Kyori */
         this.audiences = create(this);
 
+        /* Win Map Manager */
+        this.winMapManager = new WinMapManager();
+        this.winMapManager.initialize(this, 16);
+        this.getLogger().info("[DR-DBG] Win map manager created and initialized.");
+        this.loadParchmentImagesAsync();
+
         /* Arena Manager */
-        this.arenaManager = new ArenaManager(this, this.getServer(), this.audiences, this.configuration);
+        this.arenaManager = new ArenaManager(this, this.getServer(), this.audiences, this.configuration, this.winMapManager);
+        this.signManager = new SignManager(this, this.arenaManager);
+        this.arenaManager.setSignManager(this.signManager);
 
         /* Trap Registry */
         this.trapRegistry = new TrapRegistry();
@@ -108,6 +130,8 @@ public class Entrypoint extends JavaPlugin {
 
                 /* Plugin Stuff */
                 .register(ArenaManager.class, this.arenaManager)
+                .register(SignManager.class, this.signManager)
+                .register(WinMapManager.class, this.winMapManager)
                 .register(TrapRegistry.class, this.trapRegistry)
                 .register(MapSelectorService.class, new MapSelectorService(this, this.configuration, this.arenaManager, this.audiences))
                 .register(Configuration.class, this.configuration);
@@ -198,6 +222,26 @@ public class Entrypoint extends JavaPlugin {
             this.getLogger().warning("Booster listener was not found by reflection, registered fallback explicitly.");
         }
 
+        if (listenerClasses.stream().noneMatch((listener) -> listener.equals(ArenaInventoryActionListener.class))) {
+            this.getServer().getPluginManager().registerEvents(this.injector.inject(ArenaInventoryActionListener.class), this);
+            this.getLogger().warning("Inventory action listener was not found by reflection, registered fallback explicitly.");
+        }
+
+        if (listenerClasses.stream().noneMatch((listener) -> listener.equals(ArenaSignCreateListener.class))) {
+            this.getServer().getPluginManager().registerEvents(this.injector.inject(ArenaSignCreateListener.class), this);
+            this.getLogger().warning("Sign create listener was not found by reflection, registered fallback explicitly.");
+        }
+
+        if (listenerClasses.stream().noneMatch((listener) -> listener.equals(ArenaSignInteractListener.class))) {
+            this.getServer().getPluginManager().registerEvents(this.injector.inject(ArenaSignInteractListener.class), this);
+            this.getLogger().warning("Sign interact listener was not found by reflection, registered fallback explicitly.");
+        }
+
+        if (listenerClasses.stream().noneMatch((listener) -> listener.equals(ArenaSignBreakListener.class))) {
+            this.getServer().getPluginManager().registerEvents(this.injector.inject(ArenaSignBreakListener.class), this);
+            this.getLogger().warning("Sign break listener was not found by reflection, registered fallback explicitly.");
+        }
+
         /* Initialize API */
         createInstance(java.util.Objects.requireNonNullElseGet(this.arenaManager.primaryArena(), () -> new Arena("default")), this.trapRegistry);
 
@@ -230,6 +274,12 @@ public class Entrypoint extends JavaPlugin {
     @Override
     public void onDisable() {
 
+        if (this.signManager != null)
+            this.signManager.shutdown();
+
+        if (this.winMapManager != null)
+            this.winMapManager.shutdown();
+
         if (this.audiences != null)
             this.audiences.close();
 
@@ -260,6 +310,58 @@ public class Entrypoint extends JavaPlugin {
 
         } catch (@NotNull Exception ignored) {}
 
+    }
+
+    public @Nullable BufferedImage getWinParchmentImage() {
+        return this.winParchmentImage;
+    }
+
+    public @Nullable BufferedImage getLoseParchmentImage() {
+        return this.loseParchmentImage;
+    }
+
+    private void loadParchmentImagesAsync() {
+        File shared = new File(this.getDataFolder(), "parchment.png");
+        File win = new File(this.getDataFolder(), "parchment_win.png");
+        File lose = new File(this.getDataFolder(), "parchment_lose.png");
+
+        this.getLogger().info("[DR-DBG] Loading win parchment from: " + win.getAbsolutePath());
+        this.getLogger().info("[DR-DBG] Loading lose parchment from: " + lose.getAbsolutePath());
+        this.getLogger().info("[DR-DBG] Shared fallback parchment path: " + shared.getAbsolutePath());
+
+        this.getServer().getScheduler().runTaskAsynchronously(this, () -> {
+            this.winParchmentImage = this.loadParchmentWithFallback("win", win, shared);
+            this.loseParchmentImage = this.loadParchmentWithFallback("lose", lose, shared);
+        });
+    }
+
+    private @Nullable BufferedImage loadParchmentWithFallback(
+            @NotNull String type,
+            @NotNull File preferred,
+            @NotNull File sharedFallback
+    ) {
+        File target = preferred.exists() ? preferred : sharedFallback;
+        if (!target.exists()) {
+            this.getLogger().warning("Win map feature disabled for " + type + ": missing "
+                    + preferred.getName() + " and fallback parchment.png.");
+            return null;
+        }
+
+        try {
+            BufferedImage loaded = ImageIO.read(target);
+            if (loaded == null) {
+                this.getLogger().warning("Win map feature disabled for " + type + ": unable to decode " + target.getName() + ".");
+                return null;
+            }
+
+            this.getLogger().info("[DR-DBG] " + type + " parchment loaded from " + target.getName()
+                    + " size=" + loaded.getWidth() + "x" + loaded.getHeight() + " -> 128x128");
+            return MapPalette.resizeImage(loaded);
+        } catch (Exception exception) {
+            this.getLogger().warning("Win map feature disabled for " + type + ": failed to load "
+                    + target.getName() + " (" + exception.getMessage() + ").");
+            return null;
+        }
     }
 
 }

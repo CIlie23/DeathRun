@@ -51,6 +51,8 @@ public class MapConfiguration extends OkaeriConfig {
     public List<TeleportPad> teleportPads = new ArrayList<>();
     public List<Location> arenaStartBarrierBlocks = new ArrayList<>();;
     public List<Material> arenaStartBarrierRestoreMaterials = new ArrayList<>();
+    public String arenaBackgroundSongFileName;
+    public Boolean arenaBackgroundSongLoop;
 
     /* Setup Status */
     public boolean arenaSetupEnabled = true;
@@ -76,6 +78,8 @@ public class MapConfiguration extends OkaeriConfig {
         legacyMap.teleportPads = this.teleportPads;
         legacyMap.arenaStartBarrierBlocks = this.arenaStartBarrierBlocks;
         legacyMap.arenaStartBarrierRestoreMaterials = this.arenaStartBarrierRestoreMaterials;
+        legacyMap.arenaBackgroundSongFileName = this.arenaBackgroundSongFileName;
+        legacyMap.arenaBackgroundSongLoop = this.arenaBackgroundSongLoop;
         legacyMap.arenaSetupEnabled = this.arenaSetupEnabled;
         return List.of(legacyMap);
     }
@@ -107,6 +111,8 @@ public class MapConfiguration extends OkaeriConfig {
         migrated.teleportPads = new ArrayList<>(legacy.teleportPads);
         migrated.arenaStartBarrierBlocks = new ArrayList<>(legacy.arenaStartBarrierBlocks);
         migrated.arenaStartBarrierRestoreMaterials = new ArrayList<>(legacy.arenaStartBarrierRestoreMaterials);
+        migrated.arenaBackgroundSongFileName = legacy.arenaBackgroundSongFileName;
+        migrated.arenaBackgroundSongLoop = legacy.arenaBackgroundSongLoop;
         migrated.arenaSetupEnabled = legacy.arenaSetupEnabled;
 
         this.maps.add(migrated);
@@ -139,6 +145,8 @@ public class MapConfiguration extends OkaeriConfig {
         public List<TeleportPad> teleportPads = new ArrayList<>();
         public List<Location> arenaStartBarrierBlocks = new ArrayList<>();
         public List<Material> arenaStartBarrierRestoreMaterials = new ArrayList<>();
+        public String arenaBackgroundSongFileName;
+        public Boolean arenaBackgroundSongLoop;
 
         public boolean arenaSetupEnabled = false;
 

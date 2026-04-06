@@ -28,6 +28,7 @@ import pl.mrstudios.deathrun.arena.ArenaManager;
 import pl.mrstudios.deathrun.arena.checkpoint.Checkpoint;
 import pl.mrstudios.deathrun.arena.pad.TeleportPad;
 import pl.mrstudios.deathrun.arena.selector.MapSelectorService;
+import pl.mrstudios.deathrun.arena.sign.SignManager;
 import pl.mrstudios.deathrun.arena.trap.TrapRegistry;
 import pl.mrstudios.deathrun.config.Configuration;
 import pl.mrstudios.deathrun.config.impl.MapConfiguration;
@@ -57,7 +58,6 @@ import static org.apache.commons.io.FileUtils.deleteDirectory;
 import static org.bukkit.Material.*;
 import static pl.mrstudios.deathrun.api.arena.user.enums.Role.DEATH;
 import static pl.mrstudios.deathrun.api.arena.user.enums.Role.RUNNER;
-import static pl.mrstudios.deathrun.util.ChannelUtil.connect;
 
 @Command(
         name = "deathrun",
@@ -76,6 +76,7 @@ public class CommandDeathRun {
     private final TrapRegistry  trapRegistry;
     private final ArenaManager arenaManager;
     private final MapSelectorService mapSelectorService;
+    private final SignManager signManager;
     private final Configuration configuration;
     private final Map<UUID, String> setupMapSelection = new HashMap<>();
 
@@ -87,6 +88,7 @@ public class CommandDeathRun {
             @NotNull TrapRegistry trapRegistry,
             @NotNull ArenaManager arenaManager,
             @NotNull MapSelectorService mapSelectorService,
+                @NotNull SignManager signManager,
             @NotNull Configuration configuration
     ) {
         this.plugin = plugin;
@@ -95,6 +97,7 @@ public class CommandDeathRun {
         this.trapRegistry = trapRegistry;
         this.arenaManager = arenaManager;
         this.mapSelectorService = mapSelectorService;
+        this.signManager = signManager;
         this.configuration = configuration;
     }
 
@@ -209,8 +212,13 @@ public class CommandDeathRun {
     public void leave(
             @Context Player player
     ) {
-        this.arenaManager.leaveCurrentMap(player, true);
-        connect(this.plugin, player, this.configuration.plugin().server);
+        boolean leftMap = this.arenaManager.leaveCurrentMap(player, true);
+        boolean leftQueue = this.signManager.leaveQueue(player);
+        if (!leftMap && !leftQueue)
+            return;
+
+        this.arenaManager.returnPlayerToHub(player);
+        this.message(player, "&eYou have left the queue and returned to the Hub.");
     }
 
     /* Setup Command */
@@ -673,6 +681,57 @@ public class CommandDeathRun {
 
     }
 
+    @Execute(name = "setup checkpoints")
+    @Permission("mrstudios.command.deathrun.setup")
+    public void setupCheckpoints(
+            @Context Player player
+    ) {
+        MapConfiguration.MapDefinition map = this.selectedMapForSetup(player, false);
+        if (map == null)
+            return;
+
+        if (map.arenaCheckpoints.isEmpty()) {
+            this.message(player, PREFIX + "<gray>No checkpoints set for map <white>" + this.safe(map.id) + "<gray>.");
+            return;
+        }
+
+        this.message(player, PREFIX + "<gray>Checkpoints for <white>" + this.safe(map.id) + "<gray>:");
+        map.arenaCheckpoints.stream()
+                .sorted((first, second) -> Integer.compare(first.id(), second.id()))
+                .forEach((checkpoint) -> {
+                    Location spawn = checkpoint.spawn();
+                    String line = "<gray>#<white>" + checkpoint.id()
+                            + " <dark_gray>- <gray>" + spawn.getBlockX() + ", " + spawn.getBlockY() + ", " + spawn.getBlockZ()
+                            + " <dark_gray>| <click:run_command:'/deathrun setup checkpoint tp " + checkpoint.id() + "'><hover:show_text:'<gray>Teleport to checkpoint <white>#" + checkpoint.id() + "'><green>[Teleport]</green></hover></click>";
+                    this.message(player, line);
+                });
+    }
+
+    @Execute(name = "setup checkpoint tp")
+    @Permission("mrstudios.command.deathrun.setup")
+    public void setupCheckpointTeleport(
+            @Context Player player,
+            @Arg("id") int checkpointId
+    ) {
+        MapConfiguration.MapDefinition map = this.selectedMapForSetup(player, false);
+        if (map == null)
+            return;
+
+        Checkpoint checkpoint = map.arenaCheckpoints.stream()
+                .filter((candidate) -> candidate.id() == checkpointId)
+                .findFirst()
+                .orElse(null);
+
+        if (checkpoint == null) {
+            this.message(player, PREFIX + "<red>Checkpoint <white>#" + checkpointId + "<red> was not found on map <white>" + this.safe(map.id) + "<red>.");
+            return;
+        }
+
+        player.teleport(checkpoint.spawn());
+        this.message(player, PREFIX + "<gray>Teleported to checkpoint <white>#" + checkpoint.id() + "<gray> at <white>"
+                + checkpoint.spawn().getBlockX() + ", " + checkpoint.spawn().getBlockY() + ", " + checkpoint.spawn().getBlockZ());
+    }
+
     @Execute(name = "setup addspawn")
     @Permission("mrstudios.command.deathrun.setup")
     public void addSpawn(
@@ -807,6 +866,16 @@ public class CommandDeathRun {
         map.arenaWaitingLobbyLocation = player.getLocation().toCenterLocation();
         this.message(player, this.configuration.language().commandMessageWaitingLobbySet);
 
+    }
+
+    @Execute(name = "setup setmainhub")
+    @Permission("mrstudios.command.deathrun.setup")
+    public void setMainHub(
+            @Context Player player
+    ) {
+        this.configuration.plugin().mainHubLocation = player.getLocation().toCenterLocation();
+        this.configuration.plugin().save();
+        this.message(player, "<gold>[DR]</gold> <gray>Main hub location set to your current position.");
     }
 
     @Execute(name = "setup addteleport")
@@ -1010,8 +1079,10 @@ public class CommandDeathRun {
             @Nullable CommandSender actor
     ) {
         if (mapId.equalsIgnoreCase("lobby") || mapId.equalsIgnoreCase("leave")) {
+            this.signManager.leaveQueue(target);
             this.arenaManager.leaveCurrentMap(target, true);
-            connect(this.plugin, target, this.configuration.plugin().server);
+            this.arenaManager.returnPlayerToHub(target);
+            this.message(target, "&eYou have left the queue and returned to the Hub.");
 
             if (actor != null && actor != target)
                 this.message(actor, this.configuration.language().commandMessageJoinForcedLobbyActor

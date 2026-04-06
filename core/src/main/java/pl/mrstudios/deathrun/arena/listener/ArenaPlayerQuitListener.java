@@ -27,6 +27,7 @@ public class ArenaPlayerQuitListener implements Listener {
     ) {
 
         event.setQuitMessage("");
+        this.arenaManager.leaveQueue(event.getPlayer());
         this.arenaManager.leaveCurrentMap(event.getPlayer(), true);
 
     }

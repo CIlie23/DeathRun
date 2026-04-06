@@ -1,5 +1,8 @@
 package pl.mrstudios.deathrun.arena;
 
+import com.xxmicloxx.NoteBlockAPI.model.Song;
+import com.xxmicloxx.NoteBlockAPI.songplayer.RadioSongPlayer;
+import com.xxmicloxx.NoteBlockAPI.utils.NBSDecoder;
 import net.kyori.adventure.platform.bukkit.BukkitAudiences;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Location;
@@ -19,9 +22,11 @@ import pl.mrstudios.deathrun.api.arena.event.arena.ArenaShutdownStartedEvent;
 import pl.mrstudios.deathrun.api.arena.event.user.UserArenaRoleAssignedEvent;
 import pl.mrstudios.deathrun.api.arena.user.IUser;
 import pl.mrstudios.deathrun.api.arena.user.enums.Role;
+import pl.mrstudios.deathrun.arena.win.WinMapManager;
 import pl.mrstudios.deathrun.config.Configuration;
 import pl.mrstudios.deathrun.config.impl.MapConfiguration;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Objects;
@@ -47,21 +52,20 @@ import static pl.mrstudios.deathrun.api.arena.enums.GameState.*;
 import static pl.mrstudios.deathrun.api.arena.user.enums.Role.DEATH;
 import static pl.mrstudios.deathrun.api.arena.user.enums.Role.RUNNER;
 import static pl.mrstudios.deathrun.api.arena.user.enums.Role.UNKNOWN;
-import static pl.mrstudios.deathrun.util.ChannelUtil.connect;
 
 public class ArenaServiceRunnable extends BukkitRunnable {
 
     private final Arena arena;
         private final MapConfiguration.MapDefinition map;
         private final ArenaManager arenaManager;
+                private final WinMapManager winMapManager;
     private final Plugin plugin;
     private final Server server;
     private final BukkitAudiences audiences;
     private final Configuration configuration;
 
     private BukkitTask sidebarTask;
-        private BukkitTask backgroundSongTask;
-        private int backgroundSongIndex;
+                private RadioSongPlayer backgroundSongPlayer;
         private boolean forceStartRequested;
 
     @Inject
@@ -69,6 +73,7 @@ public class ArenaServiceRunnable extends BukkitRunnable {
             @NotNull Arena arena,
             @NotNull MapConfiguration.MapDefinition map,
             @NotNull ArenaManager arenaManager,
+            @NotNull WinMapManager winMapManager,
             @NotNull Plugin plugin,
             @NotNull Server server,
             @NotNull BukkitAudiences audiences,
@@ -78,6 +83,7 @@ public class ArenaServiceRunnable extends BukkitRunnable {
         this.arena = arena;
         this.map = map;
         this.arenaManager = arenaManager;
+        this.winMapManager = winMapManager;
         this.server = server;
         this.plugin = plugin;
         this.audiences = audiences;
@@ -112,12 +118,14 @@ public class ArenaServiceRunnable extends BukkitRunnable {
     /* Waiting */
     protected void waiting() {
 
-                if (this.forceStartRequested && !this.arena.getUsers().isEmpty()) {
+                this.arenaManager.applyQueuedPlayersForMapStart(this.resolvedMapId());
+
+                if (this.forceStartRequested && this.totalPlayersReadyToStart() > 0) {
                         this.setState(STARTING);
                         return;
                 }
 
-                                if (this.arena.getUsers().size() >= this.requiredPlayersToStart())
+                                if (this.totalPlayersReadyToStart() >= this.requiredPlayersToStart())
             this.setState(STARTING);
 
     }
@@ -137,6 +145,7 @@ public class ArenaServiceRunnable extends BukkitRunnable {
                 .map(IUser::asBukkit)
                 .filter(Objects::nonNull)
                 .forEach((player) -> {
+                                        this.winMapManager.reclaimMap(player);
                     player.getInventory().clear();
                     player.setAllowFlight(false);
                     player.teleport(this.map.arenaWaitingLobbyLocation);
@@ -155,12 +164,14 @@ public class ArenaServiceRunnable extends BukkitRunnable {
 
     protected void starting() {
 
-                if (this.arena.getUsers().isEmpty()) {
+                this.arenaManager.applyQueuedPlayersForMapStart(this.resolvedMapId());
+
+                if (this.totalPlayersReadyToStart() == 0) {
                         this.setState(WAITING);
                         return;
                 }
 
-                                if (!this.forceStartRequested && this.arena.getUsers().size() < this.requiredPlayersToStart()) {
+                                if (!this.forceStartRequested && this.totalPlayersReadyToStart() < this.requiredPlayersToStart()) {
             this.setState(WAITING);
             return;
         }
@@ -238,6 +249,8 @@ public class ArenaServiceRunnable extends BukkitRunnable {
                         .map(Location::getBlock)
                         .forEach((block) -> block.setType(AIR));
 
+                this.startBackgroundSong();
+
                 this.arena.getUsers()
                         .stream()
                         .map(IUser::asBukkit)
@@ -262,6 +275,8 @@ public class ArenaServiceRunnable extends BukkitRunnable {
     protected void stateSwitchToPlaying() {
 
                 this.forceStartRequested = false;
+
+                this.arenaManager.applyQueuedPlayersForMapStart(this.resolvedMapId());
 
                 this.arena.getUsers().forEach((user) -> user.setRole(UNKNOWN));
 
@@ -328,9 +343,6 @@ public class ArenaServiceRunnable extends BukkitRunnable {
                                         ));
 
                 });
-
-        this.startBackgroundSong();
-
     }
 
     /* Ending */
@@ -374,7 +386,7 @@ public class ArenaServiceRunnable extends BukkitRunnable {
                 .forEach((player) -> {
                     this.audiences.player(player).sendMessage(miniMessage().deserialize(this.configuration.language().arenaMoveServerChat));
                     this.arenaManager.leaveCurrentMap(player, false);
-                    connect(this.plugin, player, this.configuration.plugin().server);
+                                        this.arenaManager.returnPlayerToHub(player);
                 });
 
                 this.setState(WAITING);
@@ -520,43 +532,81 @@ public class ArenaServiceRunnable extends BukkitRunnable {
     }
 
         private void startBackgroundSong() {
-                if (!this.configuration.plugin().arenaBackgroundSongEnabled)
+                if (!this.configuration.plugin().arenaBackgroundSongEnabled) {
                         return;
+                }
 
-                if (this.configuration.plugin().arenaBackgroundSongNotes == null || this.configuration.plugin().arenaBackgroundSongNotes.isEmpty())
+                String fileName = this.resolveSongFileName();
+
+                if (fileName == null || fileName.isBlank()) {
                         return;
+                }
 
-                int stepTicks = Math.max(1, this.configuration.plugin().arenaBackgroundSongStepTicks);
-                this.backgroundSongIndex = 0;
-                this.backgroundSongTask = this.server.getScheduler().runTaskTimer(this.plugin, () -> {
-                        if (this.arena.getGameState() != PLAYING)
-                                return;
+                File songsDirectory = new File(this.plugin.getDataFolder(), "songs");
+                if (!songsDirectory.exists() && !songsDirectory.mkdirs()) {
+                        this.plugin.getLogger().warning("Failed to create songs directory: " + songsDirectory.getAbsolutePath());
+                        return;
+                }
 
-                        if (this.configuration.plugin().arenaBackgroundSongNotes == null || this.configuration.plugin().arenaBackgroundSongNotes.isEmpty())
-                                return;
+                File songFile = new File(songsDirectory, fileName);
+                if (!songFile.exists()) {
+                        this.plugin.getLogger().warning("Background song file not found: " + songFile.getAbsolutePath());
+                        return;
+                }
 
-                        float pitch = this.configuration.plugin().arenaBackgroundSongNotes.get(this.backgroundSongIndex);
-                        this.backgroundSongIndex = (this.backgroundSongIndex + 1) % this.configuration.plugin().arenaBackgroundSongNotes.size();
+                Song song;
+                try {
+                        song = NBSDecoder.parse(songFile);
+                }
+                catch (Exception exception) {
+                        this.plugin.getLogger().warning("Failed to parse NBS song file: " + songFile.getAbsolutePath() + " reason=" + exception.getMessage());
+                        return;
+                }
 
-                        this.arena.getRunners().stream()
-                                        .map(IUser::asBukkit)
-                                        .filter(Objects::nonNull)
-                                        .forEach((player) -> player.playSound(
-                                                        player.getLocation(),
-                                                        this.configuration.plugin().arenaBackgroundSongSound,
-                                                        this.configuration.plugin().arenaBackgroundSongVolume,
-                                                        pitch
-                                        ));
-                }, 0L, stepTicks);
+                if (song == null) {
+                        this.plugin.getLogger().warning("Parsed NBS song is null: " + songFile.getAbsolutePath());
+                        return;
+                }
+
+                this.backgroundSongPlayer = new RadioSongPlayer(song);
+                this.backgroundSongPlayer.setLoop(this.resolveSongLoop());
+
+                this.arena.getRunners().stream()
+                        .map(IUser::asBukkit)
+                        .filter(Objects::nonNull)
+                        .forEach((player) -> this.backgroundSongPlayer.addPlayer(player));
+
+                this.backgroundSongPlayer.setPlaying(true);
         }
 
         private void stopBackgroundSong() {
-                if (this.backgroundSongTask == null)
+                if (this.backgroundSongPlayer == null)
                         return;
 
-                this.backgroundSongTask.cancel();
-                this.backgroundSongTask = null;
-                this.backgroundSongIndex = 0;
+                this.backgroundSongPlayer.setPlaying(false);
+                this.backgroundSongPlayer.destroy();
+                this.backgroundSongPlayer = null;
+        }
+
+        public void removeBackgroundSongPlayer(@NotNull Player player) {
+                if (this.backgroundSongPlayer == null)
+                        return;
+
+                this.backgroundSongPlayer.removePlayer(player);
+        }
+
+        private String resolveSongFileName() {
+                if (this.map.arenaBackgroundSongFileName != null && !this.map.arenaBackgroundSongFileName.isBlank())
+                        return this.map.arenaBackgroundSongFileName;
+
+                return this.configuration.plugin().arenaBackgroundSongFileName;
+        }
+
+        private boolean resolveSongLoop() {
+                if (this.map.arenaBackgroundSongLoop != null)
+                        return this.map.arenaBackgroundSongLoop;
+
+                return this.configuration.plugin().arenaBackgroundSongLoop;
         }
 
         private int requiredPlayersToStart() {
@@ -565,6 +615,24 @@ public class ArenaServiceRunnable extends BukkitRunnable {
                         return this.configuration.plugin().arenaMinPlayers;
 
                 return max(1, min(this.configuration.plugin().arenaMinPlayers, mapCapacity));
+        }
+
+        public int requiredPlayersToStartForDisplay() {
+                return this.requiredPlayersToStart();
+        }
+
+        private int totalPlayersReadyToStart() {
+                return this.arena.getUsers().size() + this.arenaManager.queuedPlayersForMap(this.resolvedMapId());
+        }
+
+        private @NotNull String resolvedMapId() {
+                if (this.map.id != null && !this.map.id.isBlank())
+                        return this.map.id.toLowerCase().replace(" ", "-");
+
+                if (this.map.name != null && !this.map.name.isBlank())
+                        return this.map.name.toLowerCase().replace(" ", "-");
+
+                return "default";
         }
 
         private @NotNull String displayMapName() {

@@ -24,6 +24,7 @@ Detailed setup, map operations, command reference, and testing guide:
 - Java 21
 - Paper 1.21.10 (recommended)
 - WorldEdit 7.2.9+
+- [NoteBlockAPI](https://github.com/koca2000/NoteBlockAPI/releases)
 
 ## Known Notes
 

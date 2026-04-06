@@ -19,9 +19,12 @@ import pl.mrstudios.deathrun.api.arena.user.IUser;
 import pl.mrstudios.deathrun.arena.Arena;
 import pl.mrstudios.deathrun.arena.ArenaManager;
 import pl.mrstudios.deathrun.arena.checkpoint.Checkpoint;
+import pl.mrstudios.deathrun.arena.win.WinMapManager;
 import pl.mrstudios.deathrun.config.Configuration;
 import pl.mrstudios.deathrun.config.impl.MapConfiguration;
+import pl.mrstudios.deathrun.plugin.Entrypoint;
 
+import java.awt.image.BufferedImage;
 import java.util.Objects;
 
 import static java.lang.String.valueOf;
@@ -29,7 +32,6 @@ import static java.time.Duration.ofMillis;
 import static java.time.Duration.ofSeconds;
 import static java.util.Optional.ofNullable;
 import static net.kyori.adventure.text.minimessage.MiniMessage.miniMessage;
-import static net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText;
 import static net.kyori.adventure.title.Title.Times.times;
 import static net.kyori.adventure.title.Title.title;
 import static org.bukkit.GameMode.ADVENTURE;
@@ -48,6 +50,7 @@ public class ArenaCheckpointReachedListener implements Listener {
     private final Server server;
     private final BukkitAudiences audiences;
     private final Configuration configuration;
+        private final WinMapManager winMapManager;
 
     @Inject
     public ArenaCheckpointReachedListener(
@@ -55,13 +58,15 @@ public class ArenaCheckpointReachedListener implements Listener {
             @NotNull Plugin plugin,
             @NotNull Server server,
             @NotNull BukkitAudiences audiences,
-            @NotNull Configuration configuration
+                        @NotNull Configuration configuration,
+                        @NotNull WinMapManager winMapManager
     ) {
         this.arenaManager = arenaManager;
         this.plugin = plugin;
         this.server = server;
         this.audiences = audiences;
         this.configuration = configuration;
+                this.winMapManager = winMapManager;
     }
 
     @SuppressWarnings("deprecation")
@@ -113,53 +118,38 @@ public class ArenaCheckpointReachedListener implements Listener {
         if (arena == null || map == null)
             return;
 
-                if (arena.getGameState() != PLAYING) {
-                        this.debugCheckpoint(player, "<gray>[DR-DBG] checkpoint ignored because state is <white>" + arena.getGameState().name() + "<gray> (<white>" + source + "<gray>). ");
+                if (arena.getGameState() != PLAYING)
                         return;
-                }
 
         if (map.arenaCheckpoints.isEmpty())
             return;
 
         IUser user = arena.getUser(player);
-        if (user == null) {
-                        this.debugCheckpoint(player, "<gray>[DR-DBG] arena user missing (<white>" + source + "<gray>). ");
+                if (user == null)
             return;
-        }
 
-        if (user.getRole() != RUNNER) {
-                        this.debugCheckpoint(player, "<gray>[DR-DBG] checkpoint ignored because role is <white>" + user.getRole().name() + "<gray> (<white>" + source + "<gray>). ");
+                if (user.getRole() != RUNNER)
             return;
-        }
 
         var candidate = map.arenaCheckpoints.stream()
                                 .filter((checkpoint) -> this.isInsideCheckpointRegion(checkpoint, probeLocation))
                 .findFirst();
 
-        if (candidate.isEmpty()) {
-            if (probeLocation.getBlock().getType() == NETHER_PORTAL)
-                this.debugCheckpoint(player, "<gray>[DR-DBG] no checkpoint match in portal at <white>" + probeLocation.getBlockX() + "," + probeLocation.getBlockY() + "," + probeLocation.getBlockZ());
+                if (candidate.isEmpty())
             return;
-        }
 
         var checkpoint = candidate.get();
-
-        this.debugCheckpoint(player, "<gray>[DR-DBG] hit checkpoint candidate #<white>" + checkpoint.id() + "<gray> via <white>" + source + "<gray>.");
 
         var lastCheckpoint = map.arenaCheckpoints.get(map.arenaCheckpoints.size() - 1);
         boolean isLastCheckpoint = checkpoint.id().equals(lastCheckpoint.id());
         int currentCheckpointId = user.getCheckpoint() == null ? Integer.MIN_VALUE : user.getCheckpoint().id();
                 int expectedNextCheckpointId = this.expectedNextCheckpointId(map, currentCheckpointId);
 
-                if (checkpoint.id() != expectedNextCheckpointId) {
-                        this.debugCheckpoint(player, "<gray>[DR-DBG] rejected checkpoint #<white>" + checkpoint.id() + "<gray> expected #<white>" + expectedNextCheckpointId + "<gray> current=<white>" + currentCheckpointId);
+                                if (checkpoint.id() != expectedNextCheckpointId)
             return;
-        }
 
         UserArenaCheckpointEvent userArenaCheckpointEvent = new UserArenaCheckpointEvent(user, checkpoint);
         this.server.getPluginManager().callEvent(userArenaCheckpointEvent);
-
-        this.debugCheckpoint(player, "<gray>[DR-DBG] accepted checkpoint #<white>" + checkpoint.id() + "<gray>.");
 
         user.setCheckpoint(checkpoint);
         this.audiences.player(player).showTitle(
@@ -184,8 +174,6 @@ public class ArenaCheckpointReachedListener implements Listener {
         );
         if (!isLastCheckpoint)
             return;
-
-        this.debugCheckpoint(player, "<gray>[DR-DBG] finish checkpoint reached #<white>" + checkpoint.id() + "<gray>.");
 
         arena.setFinishedRuns(arena.getFinishedRuns() + 1);
 
@@ -222,6 +210,9 @@ public class ArenaCheckpointReachedListener implements Listener {
         );
 
         user.setRole(SPECTATOR);
+        ofNullable(this.arenaManager.runtimeForPlayer(player))
+                .ifPresent((runtime) -> runtime.service().removeBackgroundSongPlayer(player));
+
         player.teleport(map.arenaCheckpoints.get(0).spawn());
         arena.getUsers().stream()
                 .map(IUser::asBukkit)
@@ -252,6 +243,16 @@ public class ArenaCheckpointReachedListener implements Listener {
                         .itemFlags(values())
                         .build()
         );
+
+        BufferedImage parchmentImage = this.plugin instanceof Entrypoint entrypoint
+                ? entrypoint.getWinParchmentImage()
+                : null;
+        this.plugin.getLogger().info("[DR-DBG] Runner finished: player=" + player.getName()
+                + " map=" + map.id
+                + " position=" + position
+                + " timeSeconds=" + time
+                + " parchmentLoaded=" + (parchmentImage != null));
+        this.winMapManager.giveWinMap(player, parchmentImage, position, time);
 
     }
 
@@ -300,17 +301,6 @@ public class ArenaCheckpointReachedListener implements Listener {
     ) {
         String stripped = ChatColor.stripColor(player.getDisplayName());
         return stripped == null || stripped.isBlank() ? player.getName() : stripped;
-    }
-
-    private void debugCheckpoint(
-            @NotNull org.bukkit.entity.Player player,
-            @NotNull String message
-    ) {
-        var component = miniMessage().deserialize(message);
-        this.plugin.getLogger().info("[DR-DBG] " + plainText().serialize(component));
-
-        if (player.hasPermission("mrstudios.command.deathrun.setup"))
-            this.audiences.player(player).sendMessage(component);
     }
 
 }

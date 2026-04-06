@@ -46,8 +46,7 @@ public class ArenaPlayerJoinListener implements Listener {
         event.getPlayer().setGameMode(ADVENTURE);
         event.getPlayer().addPotionEffect(new PotionEffect(SATURATION, MAX_VALUE, 1, false, false, false));
         event.getPlayer().addPotionEffect(new PotionEffect(NIGHT_VISION, MAX_VALUE, 1, false, false, false));
-        this.audiences.player(event.getPlayer()).sendMessage(net.kyori.adventure.text.minimessage.MiniMessage.miniMessage().deserialize("<gold>[DR]</gold> <gray>Use <white>/deathrun maps <gray>or the selector item to join a map."));
-        this.arenaManager.preparePlayerForLobbyTools(event.getPlayer());
+        this.audiences.player(event.getPlayer()).sendMessage(net.kyori.adventure.text.minimessage.MiniMessage.miniMessage().deserialize("<gold>[DR]</gold> <gray>Use <white>/deathrun maps <gray>or queue signs to join a map."));
 
     }
 

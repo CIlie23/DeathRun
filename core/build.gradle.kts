@@ -86,6 +86,9 @@ dependencies {
     /* WorldEdit */
     compileOnly("com.sk89q.worldedit:worldedit-bukkit:${project.parent?.property("worldedit.version")}")
 
+    /* NoteBlockAPI */
+    compileOnly("com.github.koca2000:NoteBlockAPI:1.6.2")
+
     /* JetBrains Annotations */
     compileOnly("org.jetbrains:annotations:${project.parent?.property("jetbrains.annotations.version")}")
     annotationProcessor("org.jetbrains:annotations:${project.parent?.property("jetbrains.annotations.version")}")

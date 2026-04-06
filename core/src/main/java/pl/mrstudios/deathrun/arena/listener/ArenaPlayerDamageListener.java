@@ -9,6 +9,7 @@ import org.bukkit.event.entity.EntityCombustEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffect;
 import org.jetbrains.annotations.NotNull;
 import pl.mrstudios.commons.inject.annotation.Inject;
@@ -16,7 +17,11 @@ import pl.mrstudios.deathrun.api.arena.event.user.UserArenaDeathEvent;
 import pl.mrstudios.deathrun.api.arena.user.IUser;
 import pl.mrstudios.deathrun.arena.Arena;
 import pl.mrstudios.deathrun.arena.ArenaManager;
+import pl.mrstudios.deathrun.arena.win.WinMapManager;
 import pl.mrstudios.deathrun.config.Configuration;
+import pl.mrstudios.deathrun.plugin.Entrypoint;
+
+import java.awt.image.BufferedImage;
 
 import static java.time.Duration.ofMillis;
 import static java.time.Duration.ofSeconds;
@@ -35,21 +40,27 @@ import static pl.mrstudios.deathrun.api.arena.user.enums.Role.RUNNER;
 public class ArenaPlayerDamageListener implements Listener {
 
     private final ArenaManager arenaManager;
+    private final Plugin plugin;
     private final Server server;
     private final BukkitAudiences audiences;
     private final Configuration configuration;
+    private final WinMapManager winMapManager;
 
     @Inject
     public ArenaPlayerDamageListener(
             @NotNull ArenaManager arenaManager,
+            @NotNull Plugin plugin,
             @NotNull Server server,
             @NotNull BukkitAudiences audiences,
-            @NotNull Configuration configuration
+            @NotNull Configuration configuration,
+            @NotNull WinMapManager winMapManager
     ) {
         this.arenaManager = arenaManager;
+        this.plugin = plugin;
         this.server = server;
         this.audiences = audiences;
         this.configuration = configuration;
+        this.winMapManager = winMapManager;
     }
 
     @EventHandler(priority = MONITOR)
@@ -146,6 +157,15 @@ public class ArenaPlayerDamageListener implements Listener {
         player.playSound(player.getLocation(), this.configuration.plugin().arenaSoundPlayerDeath, 1.0f, 1.0f);
         player.addPotionEffect(FIRE_RESISTANCE_EFFECT);
         player.setFireTicks(0);
+
+        BufferedImage parchmentImage = this.plugin instanceof Entrypoint entrypoint
+            ? entrypoint.getLoseParchmentImage()
+            : null;
+        this.plugin.getLogger().info("[DR-DBG] Runner died: player=" + player.getName()
+            + " map=" + arena.getName()
+            + " deaths=" + user.getDeaths()
+            + " parchmentLoaded=" + (parchmentImage != null));
+        this.winMapManager.giveLoseMap(player, parchmentImage, user.getDeaths());
 
         this.server.getPluginManager().callEvent(new UserArenaDeathEvent(user, arena));
         this.audiences.player(player).showTitle(
