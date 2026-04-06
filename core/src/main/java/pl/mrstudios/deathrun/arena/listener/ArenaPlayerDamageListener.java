@@ -9,13 +9,19 @@ import org.bukkit.event.entity.EntityCombustEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffect;
 import org.jetbrains.annotations.NotNull;
 import pl.mrstudios.commons.inject.annotation.Inject;
 import pl.mrstudios.deathrun.api.arena.event.user.UserArenaDeathEvent;
 import pl.mrstudios.deathrun.api.arena.user.IUser;
 import pl.mrstudios.deathrun.arena.Arena;
+import pl.mrstudios.deathrun.arena.ArenaManager;
+import pl.mrstudios.deathrun.arena.win.WinMapManager;
 import pl.mrstudios.deathrun.config.Configuration;
+import pl.mrstudios.deathrun.plugin.Entrypoint;
+
+import java.awt.image.BufferedImage;
 
 import static java.time.Duration.ofMillis;
 import static java.time.Duration.ofSeconds;
@@ -33,22 +39,28 @@ import static pl.mrstudios.deathrun.api.arena.user.enums.Role.RUNNER;
 
 public class ArenaPlayerDamageListener implements Listener {
 
-    private final Arena arena;
+    private final ArenaManager arenaManager;
+    private final Plugin plugin;
     private final Server server;
     private final BukkitAudiences audiences;
     private final Configuration configuration;
+    private final WinMapManager winMapManager;
 
     @Inject
     public ArenaPlayerDamageListener(
-            @NotNull Arena arena,
+            @NotNull ArenaManager arenaManager,
+            @NotNull Plugin plugin,
             @NotNull Server server,
             @NotNull BukkitAudiences audiences,
-            @NotNull Configuration configuration
+            @NotNull Configuration configuration,
+            @NotNull WinMapManager winMapManager
     ) {
-        this.arena = arena;
+        this.arenaManager = arenaManager;
+        this.plugin = plugin;
         this.server = server;
         this.audiences = audiences;
         this.configuration = configuration;
+        this.winMapManager = winMapManager;
     }
 
     @EventHandler(priority = MONITOR)
@@ -68,15 +80,21 @@ public class ArenaPlayerDamageListener implements Listener {
         if (event.getCause() == ENTITY_ATTACK || event.getCause() == ENTITY_SWEEP_ATTACK)
             event.setCancelled(true);
 
-        if (this.arena.getGameState() != PLAYING)
+        Arena arena = this.arenaManager.arenaForPlayer(player);
+        if (arena == null) {
+            event.setCancelled(true);
+            return;
+        }
+
+        if (arena.getGameState() != PLAYING)
             event.setCancelled(true);
 
         if (event.isCancelled())
             return;
 
-        ofNullable(this.arena.getUser(player))
-                .filter((user) -> user.getRole() == RUNNER)
-                .ifPresent((user) -> this.callPlayerDeath(user, player));
+        ofNullable(arena.getUser(player))
+            .filter((user) -> user.getRole() == RUNNER)
+            .ifPresent((user) -> this.callPlayerDeath(user, player, arena));
         event.setCancelled(true);
 
     }
@@ -94,15 +112,16 @@ public class ArenaPlayerDamageListener implements Listener {
                         && event.getFrom().getYaw() != event.getTo().getYaw()
         ) return;
 
-        if (this.arena.getGameState() != PLAYING)
+        Arena arena = this.arenaManager.arenaForPlayer(event.getPlayer());
+        if (arena == null || arena.getGameState() != PLAYING)
             return;
 
         if (event.getTo().getBlock().getType() != WATER && event.getTo().getBlock().getType() != LAVA)
             return;
 
-        ofNullable(this.arena.getUser(event.getPlayer()))
+        ofNullable(arena.getUser(event.getPlayer()))
                 .filter((user) -> user.getRole() == RUNNER)
-                .ifPresent((user) -> this.callPlayerDeath(user, event.getPlayer()));
+            .ifPresent((user) -> this.callPlayerDeath(user, event.getPlayer(), arena));
 
     }
 
@@ -111,11 +130,12 @@ public class ArenaPlayerDamageListener implements Listener {
             @NotNull EntityExplodeEvent event
     ) {
 
-        if (this.arena.getGameState() != PLAYING)
-            return;
-
         event.getLocation().getNearbyEntitiesByType(Player.class, 3f)
-                .forEach((player) -> player.damage(1));
+                .forEach((player) -> {
+                    Arena arena = this.arenaManager.arenaForPlayer(player);
+                    if (arena != null && arena.getGameState() == PLAYING)
+                        player.damage(1);
+                });
 
     }
 
@@ -128,7 +148,8 @@ public class ArenaPlayerDamageListener implements Listener {
 
     protected void callPlayerDeath(
             @NotNull IUser user,
-            @NotNull Player player
+            @NotNull Player player,
+            @NotNull Arena arena
     ) {
 
         user.setDeaths(user.getDeaths() + 1);
@@ -137,7 +158,16 @@ public class ArenaPlayerDamageListener implements Listener {
         player.addPotionEffect(FIRE_RESISTANCE_EFFECT);
         player.setFireTicks(0);
 
-        this.server.getPluginManager().callEvent(new UserArenaDeathEvent(user, this.arena));
+        BufferedImage parchmentImage = this.plugin instanceof Entrypoint entrypoint
+            ? entrypoint.getLoseParchmentImage()
+            : null;
+        this.plugin.getLogger().info("[DR-DBG] Runner died: player=" + player.getName()
+            + " map=" + arena.getName()
+            + " deaths=" + user.getDeaths()
+            + " parchmentLoaded=" + (parchmentImage != null));
+        this.winMapManager.giveLoseMap(player, parchmentImage, user.getDeaths());
+
+        this.server.getPluginManager().callEvent(new UserArenaDeathEvent(user, arena));
         this.audiences.player(player).showTitle(
                 title(
                         miniMessage().deserialize(this.configuration.language().arenaDeathTitle),

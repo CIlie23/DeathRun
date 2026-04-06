@@ -8,6 +8,8 @@ import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.scoreboard.DisplaySlot;
 import org.bukkit.scoreboard.Objective;
 import org.bukkit.scoreboard.Scoreboard;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -35,6 +37,7 @@ public class Sidebar<T> {
 
     public void removeViewer(Player player) {
         this.viewers.remove(player.getUniqueId());
+        this.resetScoreboard(player);
     }
 
     public void addUpdatableLine(Function<Player, T> lineSupplier) {
@@ -46,6 +49,15 @@ public class Sidebar<T> {
     }
 
     public void destroy() {
+        for (UUID viewerId : this.viewers) {
+            Player player = Bukkit.getPlayer(viewerId);
+            if (player == null || !player.isOnline()) {
+                continue;
+            }
+
+            this.resetScoreboard(player);
+        }
+
         this.viewers.clear();
     }
 
@@ -82,11 +94,19 @@ public class Sidebar<T> {
     }
 
     private String format(Object value, int maxLen) {
-        String raw = String.valueOf(value);
+        String raw = this.stringify(value);
         if (raw.length() <= maxLen) {
             return raw;
         }
         return raw.substring(0, maxLen);
+    }
+
+    private String stringify(Object value) {
+        if (value instanceof Component component) {
+            return LegacyComponentSerializer.legacySection().serialize(component);
+        }
+
+        return String.valueOf(value);
     }
 
     private String uniqueLine(String value, int index) {
@@ -96,5 +116,13 @@ public class Sidebar<T> {
             maxSafe = maxSafe.substring(0, 38);
         }
         return maxSafe + marker;
+    }
+
+    private void resetScoreboard(Player player) {
+        if (Bukkit.getScoreboardManager() == null) {
+            return;
+        }
+
+        player.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
     }
 }

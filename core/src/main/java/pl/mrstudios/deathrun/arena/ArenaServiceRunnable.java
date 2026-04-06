@@ -1,5 +1,8 @@
 package pl.mrstudios.deathrun.arena;
 
+import com.xxmicloxx.NoteBlockAPI.model.Song;
+import com.xxmicloxx.NoteBlockAPI.songplayer.RadioSongPlayer;
+import com.xxmicloxx.NoteBlockAPI.utils.NBSDecoder;
 import net.kyori.adventure.platform.bukkit.BukkitAudiences;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Location;
@@ -19,12 +22,19 @@ import pl.mrstudios.deathrun.api.arena.event.arena.ArenaShutdownStartedEvent;
 import pl.mrstudios.deathrun.api.arena.event.user.UserArenaRoleAssignedEvent;
 import pl.mrstudios.deathrun.api.arena.user.IUser;
 import pl.mrstudios.deathrun.api.arena.user.enums.Role;
+import pl.mrstudios.deathrun.arena.win.WinMapManager;
 import pl.mrstudios.deathrun.config.Configuration;
+import pl.mrstudios.deathrun.config.impl.MapConfiguration;
 
+import java.io.File;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static java.lang.String.valueOf;
 import static java.time.Duration.ofMillis;
 import static java.util.Arrays.stream;
@@ -41,21 +51,29 @@ import static org.bukkit.inventory.ItemFlag.values;
 import static pl.mrstudios.deathrun.api.arena.enums.GameState.*;
 import static pl.mrstudios.deathrun.api.arena.user.enums.Role.DEATH;
 import static pl.mrstudios.deathrun.api.arena.user.enums.Role.RUNNER;
-import static pl.mrstudios.deathrun.util.ChannelUtil.connect;
+import static pl.mrstudios.deathrun.api.arena.user.enums.Role.UNKNOWN;
 
 public class ArenaServiceRunnable extends BukkitRunnable {
 
     private final Arena arena;
+        private final MapConfiguration.MapDefinition map;
+        private final ArenaManager arenaManager;
+                private final WinMapManager winMapManager;
     private final Plugin plugin;
     private final Server server;
     private final BukkitAudiences audiences;
     private final Configuration configuration;
 
     private BukkitTask sidebarTask;
+                private RadioSongPlayer backgroundSongPlayer;
+        private boolean forceStartRequested;
 
     @Inject
     public ArenaServiceRunnable(
             @NotNull Arena arena,
+            @NotNull MapConfiguration.MapDefinition map,
+            @NotNull ArenaManager arenaManager,
+            @NotNull WinMapManager winMapManager,
             @NotNull Plugin plugin,
             @NotNull Server server,
             @NotNull BukkitAudiences audiences,
@@ -63,16 +81,16 @@ public class ArenaServiceRunnable extends BukkitRunnable {
     ) {
 
         this.arena = arena;
+        this.map = map;
+        this.arenaManager = arenaManager;
+        this.winMapManager = winMapManager;
         this.server = server;
         this.plugin = plugin;
         this.audiences = audiences;
         this.configuration = configuration;
         this.setState(WAITING);
 
-        this.barrierTimer = configuration.plugin().arenaStartingTime;
-        this.arena.setRemainingTime(configuration.plugin().arenaGameTime);
-        this.startingTimer = configuration.plugin().arenaPreStartingTime + 1;
-        this.endDelayTimer = this.configuration.plugin().arenaEndDelay + 5;
+        this.resetRoundState();
 
     }
 
@@ -100,13 +118,45 @@ public class ArenaServiceRunnable extends BukkitRunnable {
     /* Waiting */
     protected void waiting() {
 
-        if (this.arena.getUsers().size() >= this.configuration.plugin().arenaMinPlayers)
+                this.arenaManager.applyQueuedPlayersForMapStart(this.resolvedMapId());
+
+                if (this.forceStartRequested && this.totalPlayersReadyToStart() > 0) {
+                        this.setState(STARTING);
+                        return;
+                }
+
+                                if (this.totalPlayersReadyToStart() >= this.requiredPlayersToStart())
             this.setState(STARTING);
 
     }
 
     protected void stateSwitchToWaiting() {
-        this.startingTimer = this.configuration.plugin().arenaPreStartingTime + 1;
+        this.resetRoundState();
+        for (int i = 0; i < this.map.arenaStartBarrierBlocks.size(); i++) {
+            Location location = this.map.arenaStartBarrierBlocks.get(i);
+            org.bukkit.Material restoreMaterial = i < this.map.arenaStartBarrierRestoreMaterials.size()
+                    ? this.map.arenaStartBarrierRestoreMaterials.get(i)
+                    : org.bukkit.Material.BARRIER;
+
+            location.getBlock().setType(restoreMaterial);
+        }
+
+        this.arena.getUsers().stream()
+                .map(IUser::asBukkit)
+                .filter(Objects::nonNull)
+                .forEach((player) -> {
+                                        this.winMapManager.reclaimMap(player);
+                    player.getInventory().clear();
+                    player.setAllowFlight(false);
+                    player.teleport(this.map.arenaWaitingLobbyLocation);
+                });
+
+        this.arena.getUsers().forEach((user) -> {
+            user.setDeaths(0);
+            user.setRole(UNKNOWN);
+            if (!this.map.arenaCheckpoints.isEmpty())
+                user.setCheckpoint(this.map.arenaCheckpoints.get(0));
+        });
     }
 
     /* Starting */
@@ -114,7 +164,14 @@ public class ArenaServiceRunnable extends BukkitRunnable {
 
     protected void starting() {
 
-        if (this.arena.getUsers().size() < this.configuration.plugin().arenaMinPlayers) {
+                this.arenaManager.applyQueuedPlayersForMapStart(this.resolvedMapId());
+
+                if (this.totalPlayersReadyToStart() == 0) {
+                        this.setState(WAITING);
+                        return;
+                }
+
+                                if (!this.forceStartRequested && this.totalPlayersReadyToStart() < this.requiredPlayersToStart()) {
             this.setState(WAITING);
             return;
         }
@@ -156,6 +213,11 @@ public class ArenaServiceRunnable extends BukkitRunnable {
 
     protected void playing() {
 
+                if (this.arena.getRunners().isEmpty()) {
+                        this.setState(ENDING);
+                        return;
+                }
+
         if (this.barrierTimer != -1) {
 
             if (this.barrierTimer >= 0)
@@ -182,10 +244,12 @@ public class ArenaServiceRunnable extends BukkitRunnable {
 
             if (this.barrierTimer == 0) {
 
-                this.configuration.map().arenaStartBarrierBlocks
+                this.map.arenaStartBarrierBlocks
                         .stream()
                         .map(Location::getBlock)
                         .forEach((block) -> block.setType(AIR));
+
+                this.startBackgroundSong();
 
                 this.arena.getUsers()
                         .stream()
@@ -203,15 +267,29 @@ public class ArenaServiceRunnable extends BukkitRunnable {
         this.arena.setElapsedTime(this.arena.getElapsedTime() + 1);
         this.arena.setRemainingTime(this.arena.getRemainingTime() - 1);
 
-        if (this.arena.getRemainingTime() <= 0 || this.arena.getRunners().isEmpty())
+        if (this.arena.getRemainingTime() <= 0)
             this.setState(ENDING);
 
     }
 
     protected void stateSwitchToPlaying() {
 
-        for (int i = 0; i < this.configuration.plugin().arenaDeathsAmount; i++)
-            this.arena.getUsers().get(ThreadLocalRandom.current().nextInt(this.arena.getUsers().size())).setRole(DEATH);
+                this.forceStartRequested = false;
+
+                this.arenaManager.applyQueuedPlayersForMapStart(this.resolvedMapId());
+
+                this.arena.getUsers().forEach((user) -> user.setRole(UNKNOWN));
+
+                int users = this.arena.getUsers().size();
+                int configuredDeaths = Math.max(this.configuration.plugin().arenaDeathsAmount, 0);
+                int deathsToAssign = users <= 1 ? 0 : Math.min(configuredDeaths, users - 1);
+
+                if (deathsToAssign > 0) {
+                        ArrayList<IUser> shuffled = new ArrayList<>(this.arena.getUsers());
+                        Collections.shuffle(shuffled);
+                        for (int i = 0; i < deathsToAssign; i++)
+                                shuffled.get(i).setRole(DEATH);
+                }
 
         this.arena.getUsers()
                 .stream()
@@ -220,11 +298,11 @@ public class ArenaServiceRunnable extends BukkitRunnable {
 
         range(0, this.arena.getRunners().size())
                 .filter((i) -> this.arena.getRunners().get(i).asBukkit() != null)
-                .forEach((i) -> requireNonNull(this.arena.getRunners().get(i).asBukkit()).teleport(this.configuration.map().arenaRunnerSpawnLocations.get(i)));
+                .forEach((i) -> requireNonNull(this.arena.getRunners().get(i).asBukkit()).teleport(this.map.arenaRunnerSpawnLocations.get(i % this.map.arenaRunnerSpawnLocations.size())));
 
         range(0, this.arena.getDeaths().size())
                 .filter((i) -> this.arena.getDeaths().get(i).asBukkit() != null)
-                .forEach((i) -> requireNonNull(this.arena.getDeaths().get(i).asBukkit()).teleport(this.configuration.map().arenaDeathSpawnLocations.get(i)));
+                .forEach((i) -> requireNonNull(this.arena.getDeaths().get(i).asBukkit()).teleport(this.map.arenaDeathSpawnLocations.get(i % this.map.arenaDeathSpawnLocations.size())));
 
         this.arena.getUsers()
                 .forEach((user) -> {
@@ -243,12 +321,15 @@ public class ArenaServiceRunnable extends BukkitRunnable {
                                 .map(miniMessage()::deserialize)
                                 .forEach((component) -> this.audiences.player(player).sendMessage(component));
 
-                    user.setCheckpoint(this.configuration.map().arenaCheckpoints.get(0));
+                                        if (!this.map.arenaCheckpoints.isEmpty())
+                                                user.setCheckpoint(this.map.arenaCheckpoints.get(0));
                     if (user.getRole() == DEATH)
                         player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, this.configuration.plugin().arenaDeathSpeedAmplifier, false, false, false));
 
                     this.server.getPluginManager().callEvent(new UserArenaRoleAssignedEvent(user.getRole(), user));
                     player.getInventory().clear();
+                                        player.setFoodLevel(20);
+                                        player.setSaturation(20.0f);
 
                     if (user.getRole() == RUNNER)
                         this.configuration.plugin().boosters
@@ -262,7 +343,6 @@ public class ArenaServiceRunnable extends BukkitRunnable {
                                         ));
 
                 });
-
     }
 
     /* Ending */
@@ -296,21 +376,20 @@ public class ArenaServiceRunnable extends BukkitRunnable {
         if (this.endDelayTimer > 0)
             return;
 
-        ArenaShutdownStartedEvent event = new ArenaShutdownStartedEvent(this.arena, true);
+                ArenaShutdownStartedEvent event = new ArenaShutdownStartedEvent(this.arena, false);
         this.server.getPluginManager().callEvent(event);
 
-        if (!event.isDefaultProcedure())
-            return;
-
-        this.arena.getUsers()
-                .stream().map(IUser::asBukkit)
+        this.arena.getUsers().stream()
+                .map(IUser::asBukkit)
                 .filter(Objects::nonNull)
-                .forEach((player) -> connect(this.plugin, player, this.configuration.plugin().server));
+                .toList()
+                .forEach((player) -> {
+                    this.audiences.player(player).sendMessage(miniMessage().deserialize(this.configuration.language().arenaMoveServerChat));
+                    this.arenaManager.leaveCurrentMap(player, false);
+                                        this.arenaManager.returnPlayerToHub(player);
+                });
 
-        if (this.endDelayTimer > -5)
-            return;
-
-        this.server.shutdown();
+                this.setState(WAITING);
 
     }
 
@@ -356,6 +435,8 @@ public class ArenaServiceRunnable extends BukkitRunnable {
         if (this.sidebarTask != null)
             this.sidebarTask.cancel();
 
+                this.stopBackgroundSong();
+
         if (this.arena.getSidebar() != null)
             this.arena.getSidebar().destroy();
 
@@ -363,7 +444,10 @@ public class ArenaServiceRunnable extends BukkitRunnable {
         if (this.arena.getGameState() == ENDING)
             return;
 
-        this.arena.setSidebar(newAdventureSidebar(miniMessage().deserialize(this.configuration.language().arenaScoreboardTitle), this.plugin));
+                if (!this.configuration.language().arenaScoreboardEnabled)
+            return;
+
+                this.arena.setSidebar(newAdventureSidebar(miniMessage().deserialize(this.configuration.language().arenaScoreboardTitle), this.plugin));
 
         switch (this.arena.getGameState()) {
 
@@ -376,6 +460,10 @@ public class ArenaServiceRunnable extends BukkitRunnable {
             case PLAYING ->
                     this.configuration.language().arenaScoreboardLinesPlaying.forEach(this::addLine);
 
+            case ENDING -> {
+                // No scoreboard lines are rendered for ENDING because sidebar is torn down above.
+            }
+
         }
 
         this.arena.getUsers()
@@ -384,7 +472,8 @@ public class ArenaServiceRunnable extends BukkitRunnable {
                 .filter(Objects::nonNull)
                 .forEach(this.arena.getSidebar()::addViewer);
 
-        this.sidebarTask = this.arena.getSidebar().updateLinesPeriodically(0, 20);
+        int updateTicks = Math.max(1, this.configuration.language().arenaScoreboardUpdateTicks);
+        this.sidebarTask = this.arena.getSidebar().updateLinesPeriodically(0, updateTicks);
 
     }
 
@@ -398,15 +487,16 @@ public class ArenaServiceRunnable extends BukkitRunnable {
                             ofNullable(this.arena.getUser(player))
                                     .ifPresentOrElse(
                                             (user) -> component.set(miniMessage().deserialize(
-                                                    content.replace("<map>", this.configuration.map().arenaName)
+                                                    content.replace("<map>", this.displayMapName())
                                                             .replace("<role>", this.rolePrefix(user.getRole()))
                                                             .replace("<currentPlayers>", valueOf(this.arena.getUsers().size()))
-                                                            .replace("<maxPlayers>", valueOf(this.configuration.map().arenaRunnerSpawnLocations.size() + this.configuration.map().arenaDeathSpawnLocations.size()))
+                                                            .replace("<maxPlayers>", valueOf(this.map.arenaRunnerSpawnLocations.size() + this.map.arenaDeathSpawnLocations.size()))
                                                             .replace("<timer>", valueOf(this.startingTimer))
                                                             .replace("<time>", valueOf(this.arena.getRemainingTime()))
                                                             .replace("<timeFormatted>", this.formatTime(this.arena.getRemainingTime()))
                                                             .replace("<runners>", valueOf(this.arena.getRunners().size()))
                                                             .replace("<deaths>", valueOf(user.getDeaths()))
+                                                            .replace("<deathPlayers>", valueOf(this.arena.getDeaths().size()))
                                             )),
                                             () -> this.arena.getSidebar().removeViewer(player)
                                     );
@@ -441,7 +531,153 @@ public class ArenaServiceRunnable extends BukkitRunnable {
         return String.format("%02d:%02d", minutes, seconds);
     }
 
+        private void startBackgroundSong() {
+                if (!this.configuration.plugin().arenaBackgroundSongEnabled) {
+                        return;
+                }
+
+                String fileName = this.resolveSongFileName();
+
+                if (fileName == null || fileName.isBlank()) {
+                        return;
+                }
+
+                File songsDirectory = new File(this.plugin.getDataFolder(), "songs");
+                if (!songsDirectory.exists() && !songsDirectory.mkdirs()) {
+                        this.plugin.getLogger().warning("Failed to create songs directory: " + songsDirectory.getAbsolutePath());
+                        return;
+                }
+
+                File songFile = new File(songsDirectory, fileName);
+                if (!songFile.exists()) {
+                        this.plugin.getLogger().warning("Background song file not found: " + songFile.getAbsolutePath());
+                        return;
+                }
+
+                Song song;
+                try {
+                        song = NBSDecoder.parse(songFile);
+                }
+                catch (Exception exception) {
+                        this.plugin.getLogger().warning("Failed to parse NBS song file: " + songFile.getAbsolutePath() + " reason=" + exception.getMessage());
+                        return;
+                }
+
+                if (song == null) {
+                        this.plugin.getLogger().warning("Parsed NBS song is null: " + songFile.getAbsolutePath());
+                        return;
+                }
+
+                this.backgroundSongPlayer = new RadioSongPlayer(song);
+                this.backgroundSongPlayer.setLoop(this.resolveSongLoop());
+
+                this.arena.getRunners().stream()
+                        .map(IUser::asBukkit)
+                        .filter(Objects::nonNull)
+                        .forEach((player) -> this.backgroundSongPlayer.addPlayer(player));
+
+                this.backgroundSongPlayer.setPlaying(true);
+        }
+
+        private void stopBackgroundSong() {
+                if (this.backgroundSongPlayer == null)
+                        return;
+
+                this.backgroundSongPlayer.setPlaying(false);
+                this.backgroundSongPlayer.destroy();
+                this.backgroundSongPlayer = null;
+        }
+
+        public void removeBackgroundSongPlayer(@NotNull Player player) {
+                if (this.backgroundSongPlayer == null)
+                        return;
+
+                this.backgroundSongPlayer.removePlayer(player);
+        }
+
+        private String resolveSongFileName() {
+                if (this.map.arenaBackgroundSongFileName != null && !this.map.arenaBackgroundSongFileName.isBlank())
+                        return this.map.arenaBackgroundSongFileName;
+
+                return this.configuration.plugin().arenaBackgroundSongFileName;
+        }
+
+        private boolean resolveSongLoop() {
+                if (this.map.arenaBackgroundSongLoop != null)
+                        return this.map.arenaBackgroundSongLoop;
+
+                return this.configuration.plugin().arenaBackgroundSongLoop;
+        }
+
+        private int requiredPlayersToStart() {
+                int mapCapacity = this.map.arenaRunnerSpawnLocations.size() + this.map.arenaDeathSpawnLocations.size();
+                if (mapCapacity <= 0)
+                        return this.configuration.plugin().arenaMinPlayers;
+
+                return max(1, min(this.configuration.plugin().arenaMinPlayers, mapCapacity));
+        }
+
+        public int requiredPlayersToStartForDisplay() {
+                return this.requiredPlayersToStart();
+        }
+
+        private int totalPlayersReadyToStart() {
+                return this.arena.getUsers().size() + this.arenaManager.queuedPlayersForMap(this.resolvedMapId());
+        }
+
+        private @NotNull String resolvedMapId() {
+                if (this.map.id != null && !this.map.id.isBlank())
+                        return this.map.id.toLowerCase().replace(" ", "-");
+
+                if (this.map.name != null && !this.map.name.isBlank())
+                        return this.map.name.toLowerCase().replace(" ", "-");
+
+                return "default";
+        }
+
+        private @NotNull String displayMapName() {
+                if (this.map.name != null && !this.map.name.isBlank())
+                        return this.map.name;
+
+                if (this.map.id != null && !this.map.id.isBlank())
+                        return this.map.id;
+
+                return "default";
+        }
+
     /* Constants */
     protected static final int[] messageTimes = new int[] { 1, 2, 3, 4, 5, 10, 15, 30, 60, 90, 180, 360 };
+
+        public boolean requestForceStart() {
+                if (this.arena.getGameState() == PLAYING || this.arena.getGameState() == ENDING)
+                        return false;
+
+                if (this.arena.getUsers().isEmpty())
+                        return false;
+
+                this.forceStartRequested = true;
+                if (this.arena.getGameState() == WAITING)
+                        this.setState(STARTING);
+
+                return true;
+        }
+
+        public boolean requestStop() {
+                if (this.arena.getGameState() == WAITING)
+                        return false;
+
+                this.setState(WAITING);
+                return true;
+        }
+
+        private void resetRoundState() {
+                                this.forceStartRequested = false;
+                this.barrierTimer = this.configuration.plugin().arenaStartingTime;
+                this.arena.setRemainingTime(this.configuration.plugin().arenaGameTime);
+                this.startingTimer = this.configuration.plugin().arenaPreStartingTime + 1;
+                this.endDelayTimer = this.configuration.plugin().arenaEndDelay + 5;
+                this.arena.setElapsedTime(0);
+                this.arena.setFinishedRuns(0);
+        }
 
 }

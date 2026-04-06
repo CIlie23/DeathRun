@@ -6,12 +6,14 @@ version: "${version}"
 # Dependencies
 softdepend:
   - "WorldEdit"
+depend:
+  - "NoteBlockAPI"
 
 # Commands
 commands:
   deathrun:
     description: "DeathRun main command"
-    usage: "/<command> [leave|setup]"
+    usage: "/<command> [join|start|stop|reload|maps|leave|setup]"
     aliases:
       - "dr"
     permission: "mrstudios.command.deathrun"
@@ -24,8 +26,29 @@ permissions:
   mrstudios.command.deathrun.leave:
     description: "Allows using /deathrun leave"
     default: true
+  mrstudios.command.deathrun.join:
+    description: "Allows using /deathrun join <map>"
+    default: true
+  mrstudios.command.deathrun.join.others:
+    description: "Allows using /deathrun join <map> <player>"
+    default: op
+  mrstudios.command.deathrun.start:
+    description: "Allows using /deathrun start (map)"
+    default: op
+  mrstudios.command.deathrun.stop:
+    description: "Allows using /deathrun stop (map)"
+    default: op
+  mrstudios.command.deathrun.reload:
+    description: "Allows using /deathrun reload"
+    default: op
   mrstudios.command.deathrun.setup:
     description: "Allows using /deathrun setup and setup subcommands"
+    default: op
+  deathrun.signs.create:
+    description: "Allows creating DeathRun queue signs"
+    default: op
+  deathrun.signs.break:
+    description: "Allows breaking DeathRun queue signs"
     default: op
 
 # Plugin Data

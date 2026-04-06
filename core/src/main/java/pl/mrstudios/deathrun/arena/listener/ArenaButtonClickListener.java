@@ -12,7 +12,9 @@ import pl.mrstudios.commons.inject.annotation.Inject;
 import pl.mrstudios.deathrun.api.arena.event.arena.ArenaTrapActivateEvent;
 import pl.mrstudios.deathrun.api.arena.trap.ITrap;
 import pl.mrstudios.deathrun.arena.Arena;
+import pl.mrstudios.deathrun.arena.ArenaManager;
 import pl.mrstudios.deathrun.config.Configuration;
+import pl.mrstudios.deathrun.config.impl.MapConfiguration;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -31,19 +33,19 @@ import static pl.mrstudios.deathrun.api.arena.user.enums.Role.DEATH;
 
 public class ArenaButtonClickListener implements Listener {
 
-    private final Arena arena;
+        private final ArenaManager arenaManager;
     private final Plugin plugin;
     private final Server server;
     private final Configuration configuration;
 
     @Inject
     public ArenaButtonClickListener(
-            @NotNull Arena arena,
+                        @NotNull ArenaManager arenaManager,
             @NotNull Plugin plugin,
             @NotNull Server server,
             @NotNull Configuration configuration
     ) {
-        this.arena = arena;
+                this.arenaManager = arenaManager;
         this.plugin = plugin;
         this.server = server;
         this.configuration = configuration;
@@ -58,9 +60,14 @@ public class ArenaButtonClickListener implements Listener {
                 event.getClickedBlock() == null || event.getAction() != RIGHT_CLICK_BLOCK || this.materials.stream().noneMatch((material) -> material == event.getClickedBlock().getType())
         ) return;
 
-        ofNullable(this.arena.getUser(event.getPlayer()))
+        Arena arena = this.arenaManager.arenaForPlayer(event.getPlayer());
+        MapConfiguration.MapDefinition map = this.arenaManager.mapForPlayer(event.getPlayer());
+        if (arena == null || map == null)
+            return;
+
+        ofNullable(arena.getUser(event.getPlayer()))
                 .filter((user) -> user.getRole() == DEATH)
-                .flatMap((user) -> this.configuration.map().arenaTraps.stream()
+                .flatMap((user) -> map.arenaTraps.stream()
                         .filter(
                                 (trap) -> trap.getButton().getBlockX() == event.getClickedBlock().getX()
                                         && trap.getButton().getBlockY() == event.getClickedBlock().getY()
@@ -75,7 +82,7 @@ public class ArenaButtonClickListener implements Listener {
                         return;
                     }
 
-                    ArenaTrapActivateEvent arenaTrapActivateEvent = new ArenaTrapActivateEvent(trap, this.arena);
+                    ArenaTrapActivateEvent arenaTrapActivateEvent = new ArenaTrapActivateEvent(trap, arena);
 
                     this.server.getPluginManager().callEvent(arenaTrapActivateEvent);
                     if (arenaTrapActivateEvent.isCancelled())
