@@ -231,6 +231,7 @@ public class SignManager {
         while (iterator.hasNext()) {
             Map.Entry<Location, QueueSign> entry = iterator.next();
             QueueSign queueSign = entry.getValue();
+            boolean autoJoinSign = queueSign.type() == QueueSignType.AUTOJOIN;
 
             Block block = entry.getKey().getBlock();
             if (!(block.getState() instanceof Sign sign)) {
@@ -240,8 +241,8 @@ public class SignManager {
 
             if (queueSign.type() == QueueSignType.LEAVE) {
                 this.setLine(sign, 0, "&c[DR]");
-                this.setLine(sign, 1, "&fLeave");
-                this.setLine(sign, 2, "&7Queue");
+                this.setLine(sign, 1, "&fLeave Queue");
+                this.setLine(sign, 2, "");
                 this.setLine(sign, 3, "&8Right Click");
                 sign.update();
                 continue;
@@ -253,10 +254,12 @@ public class SignManager {
 
             ArenaManager.ArenaRuntime runtime = this.arenaManager.runtimeByMapId(mapId);
             if (runtime == null) {
-                this.setLine(sign, 0, "&8[NotJoinable]");
-                this.setLine(sign, 1, "&7Unknown");
-                this.setLine(sign, 2, "&7-/-");
-                this.setLine(sign, 3, "&7• In Game •");
+                this.setLine(sign, 0, autoJoinSign ? "&8[Autojoin]" : "&8[NotJoinable]");
+                this.setLine(sign, 1, autoJoinSign ? "&7No Maps" : "&7Unknown");
+                this.setLine(sign, 2, "");
+                this.setLine(sign, 3, "");
+                //this.setLine(sign, 2, "&7- / -");
+                //this.setLine(sign, 3, "&7• In Game •");
                 sign.update();
                 continue;
             }
@@ -266,17 +269,17 @@ public class SignManager {
             String mapName = runtime.map().name == null || runtime.map().name.isBlank() ? runtime.mapId() : runtime.map().name;
 
             if (runtime.arena().getGameState() == GameState.ENDING) {
-                this.setLine(sign, 0, "&4[Restarting]");
-                this.setLine(sign, 1, mapName);
-                this.setLine(sign, 2, "&f█ █ █ █ █");
-                this.setLine(sign, 3, "");
+                this.setLine(sign, 0, "&f█ █ █ █ █");
+                this.setLine(sign, 1, autoJoinSign ? "&4[Autojoin]" : "&4[Restarting]");
+                this.setLine(sign, 2, autoJoinSign ? "&4Restarting" : mapName);
+                this.setLine(sign, 3, "&f█ █ █ █ █");
                 sign.update();
                 continue;
             }
 
             if (runtime.arena().getGameState() == GameState.PLAYING) {
-                this.setLine(sign, 0, "&8[NotJoinable]");
-                this.setLine(sign, 1, mapName);
+                this.setLine(sign, 0, autoJoinSign ? "&8[Autojoin]" : "&8[NotJoinable]");
+                this.setLine(sign, 1, autoJoinSign ? "&7Random Map" : mapName);
                 this.setLine(sign, 2, "&f" + current + "/" + max);
                 this.setLine(sign, 3, "&7• In Game •");
                 sign.update();
@@ -284,16 +287,16 @@ public class SignManager {
             }
 
             if (current >= max) {
-                this.setLine(sign, 0, "&4[Full-" + queueSign.id() + "]");
-                this.setLine(sign, 1, mapName);
+                this.setLine(sign, 0, autoJoinSign ? "&4[Auto Full]" : "&4[Full-" + queueSign.id() + "]");
+                this.setLine(sign, 1, autoJoinSign ? "&7Random Map" : mapName);
                 this.setLine(sign, 2, "&f" + max + "/" + max);
                 this.setLine(sign, 3, "&5● Lobby ●");
                 sign.update();
                 continue;
             }
 
-            this.setLine(sign, 0, "&1[Join-" + queueSign.id() + "]");
-            this.setLine(sign, 1, mapName);
+            this.setLine(sign, 0, autoJoinSign ? "&1[Autojoin]" : "&1[Join-" + queueSign.id() + "]");
+            this.setLine(sign, 1, autoJoinSign ? "&7Random Map" : mapName);
             this.setLine(sign, 2, "&8" + current + "/" + max);
             this.setLine(sign, 3, "&5● Lobby ●");
             sign.update();
