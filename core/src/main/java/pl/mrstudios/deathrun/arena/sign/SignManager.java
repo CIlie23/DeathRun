@@ -269,10 +269,10 @@ public class SignManager {
             String mapName = runtime.map().name == null || runtime.map().name.isBlank() ? runtime.mapId() : runtime.map().name;
 
             if (runtime.arena().getGameState() == GameState.ENDING) {
-                this.setLine(sign, 0, "&f█ █ █ █ █");
+                this.setLine(sign, 0, "&4█ █ █ █ █");
                 this.setLine(sign, 1, autoJoinSign ? "&4[Autojoin]" : "&4[Restarting]");
                 this.setLine(sign, 2, autoJoinSign ? "&4Restarting" : mapName);
-                this.setLine(sign, 3, "&f█ █ █ █ █");
+                this.setLine(sign, 3, "&4█ █ █ █ █");
                 sign.update();
                 continue;
             }

@@ -33,6 +33,7 @@ import static org.bukkit.event.block.Action.RIGHT_CLICK_AIR;
 import static org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK;
 import static org.bukkit.inventory.ItemFlag.values;
 import static pl.mrstudios.deathrun.api.arena.enums.GameState.PLAYING;
+import static pl.mrstudios.deathrun.api.arena.user.enums.Role.RUNNER;
 
 public class ArenaBoosterListener implements Listener {
 
@@ -117,11 +118,8 @@ public class ArenaBoosterListener implements Listener {
                     taskId.set(
                             this.server.getScheduler().scheduleSyncRepeatingTask(this.plugin, () -> {
 
-                                if (arena.getGameState() != PLAYING) {
-
-                                    this.configuration.plugin().boosters
-                                            .forEach((object) -> event.getPlayer().getInventory().setItem(object.slot(), null));
-
+                                IUser currentUser = arena.getUser(event.getPlayer());
+                                if (arena.getGameState() != PLAYING || currentUser == null || currentUser.getRole() != RUNNER) {
                                     if (taskId.get() != -1)
                                         this.server.getScheduler().cancelTask(taskId.get());
                                     return;

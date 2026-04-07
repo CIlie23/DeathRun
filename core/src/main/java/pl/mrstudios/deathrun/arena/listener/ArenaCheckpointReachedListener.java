@@ -11,6 +11,7 @@ import org.bukkit.event.player.PlayerPortalEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import pl.mrstudios.commons.bukkit.item.ItemBuilder;
 import pl.mrstudios.commons.inject.annotation.Inject;
 import pl.mrstudios.deathrun.api.arena.event.user.UserArenaCheckpointEvent;
@@ -140,12 +141,12 @@ public class ArenaCheckpointReachedListener implements Listener {
 
         var checkpoint = candidate.get();
 
-        var lastCheckpoint = map.arenaCheckpoints.get(map.arenaCheckpoints.size() - 1);
-        boolean isLastCheckpoint = checkpoint.id().equals(lastCheckpoint.id());
+        Checkpoint finishCheckpoint = this.finishCheckpoint(map);
+        boolean isLastCheckpoint = finishCheckpoint != null && checkpoint.id().equals(finishCheckpoint.id());
         int currentCheckpointId = user.getCheckpoint() == null ? Integer.MIN_VALUE : user.getCheckpoint().id();
-                int expectedNextCheckpointId = this.expectedNextCheckpointId(map, currentCheckpointId);
+                Checkpoint expectedNextCheckpoint = this.expectedNextCheckpoint(map, currentCheckpointId);
 
-                                if (checkpoint.id() != expectedNextCheckpointId)
+                                if (expectedNextCheckpoint == null || checkpoint.id() != expectedNextCheckpoint.id())
             return;
 
         UserArenaCheckpointEvent userArenaCheckpointEvent = new UserArenaCheckpointEvent(user, checkpoint);
@@ -172,6 +173,10 @@ public class ArenaCheckpointReachedListener implements Listener {
                 this.configuration.plugin().arenaSoundCheckpointReachedVolume,
                 this.configuration.plugin().arenaSoundCheckpointReachedPitch
         );
+        this.audiences.player(player).sendMessage(miniMessage().deserialize(
+                this.configuration.language().chatMessageArenaCheckpointReached
+                        .replace("<checkpoint>", valueOf(checkpoint.id()))
+        ));
         if (!isLastCheckpoint)
             return;
 
@@ -256,16 +261,43 @@ public class ArenaCheckpointReachedListener implements Listener {
 
     }
 
-    private int expectedNextCheckpointId(
+        private @Nullable Checkpoint expectedNextCheckpoint(
             @NotNull MapConfiguration.MapDefinition map,
             int currentCheckpointId
     ) {
-        return map.arenaCheckpoints.stream()
-                .mapToInt(Checkpoint::id)
-                .filter((id) -> id > currentCheckpointId)
-                .min()
-                .orElse(currentCheckpointId);
+                if (map.arenaCheckpoints.isEmpty())
+                        return null;
+
+                if (currentCheckpointId == Integer.MIN_VALUE)
+                        return map.arenaCheckpoints.get(0);
+
+                for (int i = 0; i < map.arenaCheckpoints.size(); i++) {
+                        if (map.arenaCheckpoints.get(i).id() != currentCheckpointId)
+                                continue;
+
+                        if (i + 1 >= map.arenaCheckpoints.size())
+                                return null;
+
+                        return map.arenaCheckpoints.get(i + 1);
+                }
+
+                return map.arenaCheckpoints.get(0);
     }
+
+        private @Nullable Checkpoint finishCheckpoint(
+                        @NotNull MapConfiguration.MapDefinition map
+        ) {
+                if (map.arenaCheckpoints.isEmpty())
+                        return null;
+
+                if (map.arenaFinishCheckpointId == null)
+                        return map.arenaCheckpoints.get(map.arenaCheckpoints.size() - 1);
+
+                return map.arenaCheckpoints.stream()
+                                .filter((checkpoint) -> checkpoint.id().equals(map.arenaFinishCheckpointId))
+                                .findFirst()
+                                .orElseGet(() -> map.arenaCheckpoints.get(map.arenaCheckpoints.size() - 1));
+        }
 
     private boolean isInsideCheckpointRegion(
             @NotNull Checkpoint checkpoint,

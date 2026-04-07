@@ -46,6 +46,7 @@ public class MapConfiguration extends OkaeriConfig {
 
     /* Checkpoints */
     public List<Checkpoint> arenaCheckpoints = new ArrayList<>();;
+    public Integer arenaFinishCheckpointId;
 
     /* Misc */
     public List<TeleportPad> teleportPads = new ArrayList<>();
@@ -75,6 +76,7 @@ public class MapConfiguration extends OkaeriConfig {
         legacyMap.arenaDeathSpawnLocations = this.arenaDeathSpawnLocations;
         legacyMap.arenaTraps = this.arenaTraps;
         legacyMap.arenaCheckpoints = this.arenaCheckpoints;
+        legacyMap.arenaFinishCheckpointId = this.arenaFinishCheckpointId;
         legacyMap.teleportPads = this.teleportPads;
         legacyMap.arenaStartBarrierBlocks = this.arenaStartBarrierBlocks;
         legacyMap.arenaStartBarrierRestoreMaterials = this.arenaStartBarrierRestoreMaterials;
@@ -108,6 +110,7 @@ public class MapConfiguration extends OkaeriConfig {
         migrated.arenaDeathSpawnLocations = new ArrayList<>(legacy.arenaDeathSpawnLocations);
         migrated.arenaTraps = new ArrayList<>(legacy.arenaTraps);
         migrated.arenaCheckpoints = new ArrayList<>(legacy.arenaCheckpoints);
+        migrated.arenaFinishCheckpointId = legacy.arenaFinishCheckpointId;
         migrated.teleportPads = new ArrayList<>(legacy.teleportPads);
         migrated.arenaStartBarrierBlocks = new ArrayList<>(legacy.arenaStartBarrierBlocks);
         migrated.arenaStartBarrierRestoreMaterials = new ArrayList<>(legacy.arenaStartBarrierRestoreMaterials);
@@ -141,6 +144,7 @@ public class MapConfiguration extends OkaeriConfig {
         public List<ITrap> arenaTraps = new ArrayList<>();
 
         public List<Checkpoint> arenaCheckpoints = new ArrayList<>();
+        public Integer arenaFinishCheckpointId;
 
         public List<TeleportPad> teleportPads = new ArrayList<>();
         public List<Location> arenaStartBarrierBlocks = new ArrayList<>();

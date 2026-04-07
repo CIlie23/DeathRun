@@ -3,6 +3,7 @@ package pl.mrstudios.deathrun.arena.listener;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCreativeEvent;
 import org.bukkit.event.player.PlayerAttemptPickupItemEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerPickupArrowEvent;
@@ -16,6 +17,8 @@ import static org.bukkit.event.EventPriority.MONITOR;
 import static org.bukkit.event.inventory.InventoryType.PLAYER;
 
 public class ArenaInventoryActionListener implements Listener {
+
+    private static final String INVENTORY_BYPASS_PERMISSION = "deathrun.inventory.bypass";
 
     private final ArenaManager arenaManager;
     private final Plugin plugin;
@@ -33,6 +36,8 @@ public class ArenaInventoryActionListener implements Listener {
     public void onInventoryClick(
             @NotNull InventoryClickEvent event
     ) {
+        if (this.hasInventoryBypass(event.getWhoClicked()))
+            return;
 
         if (event.getClickedInventory() == null)
             return;
@@ -45,9 +50,22 @@ public class ArenaInventoryActionListener implements Listener {
     }
 
     @EventHandler(priority = MONITOR)
+    public void onCreativeInventory(
+            @NotNull InventoryCreativeEvent event
+    ) {
+        if (this.hasInventoryBypass(event.getWhoClicked()))
+            return;
+
+        event.setCancelled(true);
+    }
+
+    @EventHandler(priority = MONITOR)
     public void onItemDrop(
             @NotNull PlayerDropItemEvent event
     ) {
+        if (this.hasInventoryBypass(event.getPlayer()))
+            return;
+
         event.setCancelled(true);
 
         if (this.arenaManager.runtimeForPlayer(event.getPlayer()) != null)
@@ -60,6 +78,9 @@ public class ArenaInventoryActionListener implements Listener {
     public void onPlayerItemSwap(
             @NotNull PlayerSwapHandItemsEvent event
     ) {
+        if (this.hasInventoryBypass(event.getPlayer()))
+            return;
+
         event.setCancelled(true);
     }
 
@@ -67,6 +88,9 @@ public class ArenaInventoryActionListener implements Listener {
     public void onPlayerArrowPickup(
             @NotNull PlayerPickupArrowEvent event
     ) {
+        if (this.hasInventoryBypass(event.getPlayer()))
+            return;
+
         event.setCancelled(true);
     }
 
@@ -74,7 +98,16 @@ public class ArenaInventoryActionListener implements Listener {
     public void onPlayerItemPickup(
             @NotNull PlayerAttemptPickupItemEvent event
     ) {
+        if (this.hasInventoryBypass(event.getPlayer()))
+            return;
+
         event.setCancelled(true);
+    }
+
+    private boolean hasInventoryBypass(
+            @NotNull org.bukkit.command.CommandSender commandSender
+    ) {
+        return commandSender.isOp() || commandSender.hasPermission(INVENTORY_BYPASS_PERMISSION);
     }
 
 }

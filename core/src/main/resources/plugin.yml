@@ -50,6 +50,9 @@ permissions:
   deathrun.signs.break:
     description: "Allows breaking DeathRun queue signs"
     default: op
+  deathrun.inventory.bypass:
+    description: "Allows bypassing DeathRun inventory/drop/pickup restrictions"
+    default: op
 
 # Plugin Data
 load: "POSTWORLD"

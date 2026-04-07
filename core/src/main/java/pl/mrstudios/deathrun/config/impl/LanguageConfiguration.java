@@ -37,6 +37,7 @@ public class LanguageConfiguration extends OkaeriConfig {
     public String chatMessageArenaPlayerJoined = "<gray><player> <yellow>has joined. <aqua>(<currentPlayers>/<maxPlayers>)";
     public String chatMessageArenaPlayerLeft = "<gray><player> <yellow>has quit.";
     public String chatMessageArenaStartingTimer = "<yellow>Game starts in <gold><timer> seconds<yellow>.";
+        public String chatMessageArenaCheckpointReached = "<gold>Checkpoint reached: <yellow>#<checkpoint>";
     public String chatMessageArenaPlayerFinished = "<reset> <white><b>FINISH ></b> <gray>Player <gold><player> <gray>has finished game in <white><seconds> seconds<gray>. <dark_gray>(#<finishPosition>)";
 
     @Comment({
@@ -56,6 +57,7 @@ public class LanguageConfiguration extends OkaeriConfig {
             "<reset> <b>*</b> <white>/deathrun stop (map)",
             "<reset> <b>*</b> <white>/deathrun reload",
             "<reset> <b>*</b> <white>/deathrun maps",
+            "<reset> <b>*</b> <white>/deathrun help (page)",
             "<reset> <b>*</b> <white>/deathrun leave",
             "<reset> <b>*</b> <white>/deathrun setup",
             "<reset>"
@@ -82,6 +84,14 @@ public class LanguageConfiguration extends OkaeriConfig {
             "<reset> <b>*</b> <white>/deathrun setup addspawn <death/runner>",
             "<reset> <b>*</b> <white>/deathrun setup addtrap <type> (objects)",
             "<reset> <b>*</b> <white>/deathrun setup addcheckpoint",
+            "<reset> <b>*</b> <white>/deathrun setup checkpoint list",
+            "<reset> <b>*</b> <white>/deathrun setup checkpoint tp <id>",
+            "<reset> <b>*</b> <white>/deathrun setup checkpoint tp <map> <id>",
+            "<reset> <b>*</b> <white>/deathrun setup checkpoint setorder <id> <position>",
+            "<reset> <b>*</b> <white>/deathrun setup checkpoint setfinish <id>",
+            "<reset> <b>*</b> <white>/deathrun setup checkpoint move <id>",
+            "<reset> <b>*</b> <white>/deathrun setup checkpoint delete <id>",
+            "<reset> <b>*</b> <white>/deathrun setup setmainhub",
             "<reset> <b>*</b> <white>/deathrun setup addteleport",
             "<reset> <b>*</b> <white>/deathrun setup save",
             "<reset>"
@@ -90,6 +100,11 @@ public class LanguageConfiguration extends OkaeriConfig {
         public String commandMessageCheckpointAdded = "<reset> <dark_green><b>*</b> <green>Checkpoint <dark_green>#<checkpoint><green> added for map <dark_green><map><green>.";
         public String commandMessageCheckpointAreaInfo = "<reset> <gray>Checkpoint area size: <white><blocks> blocks<gray>.";
         public String commandMessageCheckpointAreaEmpty = "<reset> <dark_red><b>*</b> <red>Checkpoint area is empty. Select a WorldEdit region first.";
+                public String commandMessageCheckpointNotFound = "<reset> <dark_red><b>*</b> <red>Checkpoint <dark_red>#<checkpoint> <red>was not found on map <dark_red><map><red>.";
+                public String commandMessageCheckpointDeleted = "<reset> <dark_green><b>*</b> <green>Deleted checkpoint <dark_green>#<checkpoint> <green>from map <dark_green><map><green>.";
+                public String commandMessageCheckpointOrderUpdated = "<reset> <dark_green><b>*</b> <green>Moved checkpoint <dark_green>#<checkpoint> <green>to position <dark_green><position><green>.";
+                public String commandMessageCheckpointFinishSet = "<reset> <dark_green><b>*</b> <green>Checkpoint <dark_green>#<checkpoint> <green>is now the finish checkpoint.";
+                public String commandMessageCheckpointMoved = "<reset> <dark_green><b>*</b> <green>Moved checkpoint <dark_green>#<checkpoint> <green>spawn to your current location.";
     public String commandMessageRoleInvalid = "<reset> <dark_red><b>*</b> <red>You must select <dark_red>RUNNER <red>or <dark_red>DEATH <red>role.";
     public String commandMessageRoleSpawnAdded = "<reset> <dark_green><b>*</b> <green>Added <dark_green><role> <green>role spawn.";
     public String commandMessageArenaNameSet = "<reset> <dark_green><b>*</b> <green>Arena name has been set to <dark_green><name><green>.";
@@ -147,6 +162,8 @@ public class LanguageConfiguration extends OkaeriConfig {
         public String commandMessageSetupMapInvalidWorld = "<reset> <dark_red><b>*</b> <red>World <dark_red><world> <red>is not loaded.";
         public String commandMessageSetupMapNoSelection = "<reset> <dark_red><b>*</b> <red>Select setup map first using <white>/deathrun setup maps use <id><red>.";
         public String commandMessageSetupMapLocked = "<reset> <dark_red><b>*</b> <red>Selected map setup is disabled. Re-enable it in map.yml or create a new map.";
+        public String commandMessageSetupEditModeEntered = "<reset> <dark_green><b>*</b> <green>Edit mode enabled for map <dark_green><map><green>.";
+        public String commandMessageSetupEditModeSaved = "<reset> <dark_green><b>*</b> <green>Editing complete; all changes have been saved.";
         public String commandMessageSetupMapListLine = "<reset> <gray>- <white><id> <dark_gray>| <white><name> <dark_gray>| <white><world> <dark_gray>| <white><state>";
         public String commandMessageSetupMapListEmpty = "<reset> <dark_red><b>*</b> <red>No setup maps available.";
         public String commandMessageSetupMapDeleteLastBlocked = "<reset> <dark_red><b>*</b> <red>You cannot delete the last map.";
