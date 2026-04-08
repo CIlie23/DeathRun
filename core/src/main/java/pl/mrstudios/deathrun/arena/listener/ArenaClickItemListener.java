@@ -62,7 +62,7 @@ public class ArenaClickItemListener implements Listener {
             return;
 
         this.arenaManager.returnPlayerToHub(event.getPlayer());
-        event.getPlayer().sendMessage(org.bukkit.ChatColor.translateAlternateColorCodes('&', "&eYou have left the queue and returned to the Hub."));
+        event.getPlayer().sendMessage(org.bukkit.ChatColor.YELLOW + "You have left the match and returned to the Hub.");
 
     }
 

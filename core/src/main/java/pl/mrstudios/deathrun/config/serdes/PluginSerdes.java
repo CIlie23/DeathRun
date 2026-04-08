@@ -11,6 +11,7 @@ public class PluginSerdes implements OkaeriSerdesPack {
     public void register(
             @NotNull SerdesRegistry registry
     ) {
+        registry.register(new LocationSerializer());
         registry.register(new TrapSerializer());
         registry.register(new CheckpointSerializer());
         registry.register(new TeleportPadSerializer());

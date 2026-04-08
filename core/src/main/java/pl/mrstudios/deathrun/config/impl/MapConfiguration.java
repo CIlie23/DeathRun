@@ -54,6 +54,8 @@ public class MapConfiguration extends OkaeriConfig {
     public List<Material> arenaStartBarrierRestoreMaterials = new ArrayList<>();
     public String arenaBackgroundSongFileName;
     public Boolean arenaBackgroundSongLoop;
+    public Integer arenaMaxPlayers;
+    public Integer arenaRequiredPlayersToStart;
 
     /* Setup Status */
     public boolean arenaSetupEnabled = true;
@@ -63,6 +65,8 @@ public class MapConfiguration extends OkaeriConfig {
             this.maps.forEach((map) -> {
                 if (map.id == null || map.id.isBlank())
                     map.id = this.normalizedMapId(map.name);
+
+                this.ensureMutableSetupLists(map);
             });
             return this.maps;
         }
@@ -72,17 +76,20 @@ public class MapConfiguration extends OkaeriConfig {
         legacyMap.name = this.arenaName;
         legacyMap.world = this.arenaWaitingLobbyLocation == null ? "" : this.arenaWaitingLobbyLocation.getWorld().getName();
         legacyMap.arenaWaitingLobbyLocation = this.arenaWaitingLobbyLocation;
-        legacyMap.arenaRunnerSpawnLocations = this.arenaRunnerSpawnLocations;
-        legacyMap.arenaDeathSpawnLocations = this.arenaDeathSpawnLocations;
-        legacyMap.arenaTraps = this.arenaTraps;
-        legacyMap.arenaCheckpoints = this.arenaCheckpoints;
+        legacyMap.arenaRunnerSpawnLocations = new ArrayList<>(this.arenaRunnerSpawnLocations);
+        legacyMap.arenaDeathSpawnLocations = new ArrayList<>(this.arenaDeathSpawnLocations);
+        legacyMap.arenaTraps = new ArrayList<>(this.arenaTraps);
+        legacyMap.arenaCheckpoints = new ArrayList<>(this.arenaCheckpoints);
         legacyMap.arenaFinishCheckpointId = this.arenaFinishCheckpointId;
-        legacyMap.teleportPads = this.teleportPads;
-        legacyMap.arenaStartBarrierBlocks = this.arenaStartBarrierBlocks;
-        legacyMap.arenaStartBarrierRestoreMaterials = this.arenaStartBarrierRestoreMaterials;
+        legacyMap.teleportPads = new ArrayList<>(this.teleportPads);
+        legacyMap.arenaStartBarrierBlocks = new ArrayList<>(this.arenaStartBarrierBlocks);
+        legacyMap.arenaStartBarrierRestoreMaterials = new ArrayList<>(this.arenaStartBarrierRestoreMaterials);
         legacyMap.arenaBackgroundSongFileName = this.arenaBackgroundSongFileName;
         legacyMap.arenaBackgroundSongLoop = this.arenaBackgroundSongLoop;
+        legacyMap.arenaMaxPlayers = null;
+        legacyMap.arenaRequiredPlayersToStart = null;
         legacyMap.arenaSetupEnabled = this.arenaSetupEnabled;
+        this.ensureMutableSetupLists(legacyMap);
         return List.of(legacyMap);
     }
 
@@ -95,7 +102,10 @@ public class MapConfiguration extends OkaeriConfig {
 
     public void ensureMapsMutable() {
         if (!this.maps.isEmpty()) {
-            this.maps.forEach((map) -> map.id = this.normalizedMapId(map.id));
+            this.maps.forEach((map) -> {
+                map.id = this.normalizedMapId(map.id);
+                this.ensureMutableSetupLists(map);
+            });
             return;
         }
 
@@ -116,9 +126,24 @@ public class MapConfiguration extends OkaeriConfig {
         migrated.arenaStartBarrierRestoreMaterials = new ArrayList<>(legacy.arenaStartBarrierRestoreMaterials);
         migrated.arenaBackgroundSongFileName = legacy.arenaBackgroundSongFileName;
         migrated.arenaBackgroundSongLoop = legacy.arenaBackgroundSongLoop;
+        migrated.arenaMaxPlayers = legacy.arenaMaxPlayers;
+        migrated.arenaRequiredPlayersToStart = legacy.arenaRequiredPlayersToStart;
         migrated.arenaSetupEnabled = legacy.arenaSetupEnabled;
+        this.ensureMutableSetupLists(migrated);
 
         this.maps.add(migrated);
+    }
+
+    private void ensureMutableSetupLists(
+            MapDefinition map
+    ) {
+        map.arenaRunnerSpawnLocations = new ArrayList<>(map.arenaRunnerSpawnLocations);
+        map.arenaDeathSpawnLocations = new ArrayList<>(map.arenaDeathSpawnLocations);
+        map.arenaCheckpoints = new ArrayList<>(map.arenaCheckpoints);
+        map.arenaTraps = new ArrayList<>(map.arenaTraps);
+        map.teleportPads = new ArrayList<>(map.teleportPads);
+        map.arenaStartBarrierBlocks = new ArrayList<>(map.arenaStartBarrierBlocks);
+        map.arenaStartBarrierRestoreMaterials = new ArrayList<>(map.arenaStartBarrierRestoreMaterials);
     }
 
     public String normalizedMapId(String source) {
@@ -151,6 +176,8 @@ public class MapConfiguration extends OkaeriConfig {
         public List<Material> arenaStartBarrierRestoreMaterials = new ArrayList<>();
         public String arenaBackgroundSongFileName;
         public Boolean arenaBackgroundSongLoop;
+        public Integer arenaMaxPlayers;
+        public Integer arenaRequiredPlayersToStart;
 
         public boolean arenaSetupEnabled = false;
 

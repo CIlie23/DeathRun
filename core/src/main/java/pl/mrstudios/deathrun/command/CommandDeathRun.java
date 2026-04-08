@@ -221,7 +221,7 @@ public class CommandDeathRun {
             return;
 
         this.arenaManager.returnPlayerToHub(player);
-        this.message(player, "&eYou have left the queue and returned to the Hub.");
+        this.message(player, "<yellow>You have left the match and returned to the Hub.");
     }
 
     /* Setup Command */
@@ -682,6 +682,8 @@ public class CommandDeathRun {
         if (map == null)
             return;
 
+        this.ensureMutableSetupCollections(map);
+
         List<Location> selectedLocations = this.locations(player);
         if (selectedLocations.isEmpty()) {
             this.message(player, this.configuration.language().commandMessageCheckpointAreaEmpty);
@@ -701,9 +703,9 @@ public class CommandDeathRun {
 
     }
 
-    @Execute(name = "setup checkpoints")
+    @Execute(name = "setup checkpoint list")
     @Permission("mrstudios.command.deathrun.setup")
-    public void setupCheckpoints(
+    public void setupCheckpointList(
             @Context Player player
     ) {
         MapConfiguration.MapDefinition map = this.selectedMapForSetup(player, false);
@@ -715,6 +717,7 @@ public class CommandDeathRun {
             return;
         }
 
+        String normalizedMapId = this.configuration.map().normalizedMapId(map.id);
         this.message(player, PREFIX + "<gray>Checkpoints for <white>" + this.safe(map.id) + "<gray>:");
         map.arenaCheckpoints.stream()
                 .sorted((first, second) -> Integer.compare(first.id(), second.id()))
@@ -722,17 +725,9 @@ public class CommandDeathRun {
                     Location spawn = checkpoint.spawn();
                     String line = "<gray>#<white>" + checkpoint.id()
                             + " <dark_gray>- <gray>" + spawn.getBlockX() + ", " + spawn.getBlockY() + ", " + spawn.getBlockZ()
-                    + " <dark_gray>| <click:run_command:'/deathrun setup checkpoint tp " + this.safe(map.id) + " " + checkpoint.id() + "'><green>[Teleport]</green></click>";
+                            + " <dark_gray>| <click:run_command:'/deathrun setup checkpoint tp " + normalizedMapId + " " + checkpoint.id() + "'><green>[Teleport]</green></click>";
                     this.message(player, line);
                 });
-    }
-
-    @Execute(name = "setup checkpoint list")
-    @Permission("mrstudios.command.deathrun.setup")
-    public void setupCheckpointList(
-            @Context Player player
-    ) {
-        this.setupCheckpoints(player);
     }
 
     @Execute(name = "setup checkpoint tp")
@@ -801,6 +796,8 @@ public class CommandDeathRun {
         MapConfiguration.MapDefinition map = this.selectedMapForSetup(player, true);
         if (map == null)
             return;
+
+        this.ensureMutableSetupCollections(map);
 
         Checkpoint removed = null;
         List<Checkpoint> checkpoints = new ArrayList<>(map.arenaCheckpoints);
@@ -974,6 +971,7 @@ public class CommandDeathRun {
         if (role != DEATH && role != RUNNER)
             return;
 
+        this.configuration.map().save();
         this.message(player, this.configuration.language().commandMessageRoleSpawnAdded.replace("<role>", role.name()));
 
     }
@@ -1019,20 +1017,38 @@ public class CommandDeathRun {
         this.trap(player, type, particle, count, offset);
     }
 
-    @Execute(name = "setup setname")
+    @Execute(name = "setup create")
     @Permission("mrstudios.command.deathrun.setup")
-    public void setName(
+    public void setupCreate(
             @Context Player player,
             @Arg("name") String name
     ) {
 
-        MapConfiguration.MapDefinition map = this.selectedMapForSetup(player, true);
-        if (map == null)
+        this.configuration.map().ensureMapsMutable();
+        String normalized = this.configuration.map().normalizedMapId(name);
+        if (this.configuration.map().getMapById(normalized) != null) {
+            this.message(player, this.configuration.language().commandMessageSetupMapAlreadyExists.replace("<map>", normalized));
             return;
+        }
 
+        MapConfiguration.MapDefinition map = new MapConfiguration.MapDefinition();
+        map.id = normalized;
         map.name = name;
-        this.message(player, this.configuration.language().commandMessageArenaNameSet.replace("<name>", name));
+        map.world = player.getWorld().getName();
+        map.arenaSetupEnabled = true;
 
+        this.configuration.map().maps.add(map);
+        this.setupMapSelection.put(player.getUniqueId(), normalized);
+        this.setupEditModePlayers.add(player.getUniqueId());
+
+        this.configuration.map().save();
+        this.arenaManager.reloadRuntime(normalized);
+
+        this.message(player, this.configuration.language().commandMessageSetupMapCreated
+                .replace("<map>", map.id)
+                .replace("<world>", map.world));
+        this.message(player, this.configuration.language().commandMessageSetupMapSelected.replace("<map>", map.id));
+        this.message(player, this.configuration.language().commandMessageSetupEditModeEntered.replace("<map>", this.safe(map.id)));
     }
 
     @Execute(name = "setup setstartbarrier")
@@ -1284,13 +1300,13 @@ public class CommandDeathRun {
 
         if (requireSetupEnabled && !map.arenaSetupEnabled) {
             if (this.setupEditModePlayers.contains(player.getUniqueId()))
-                return map;
+                return this.mutableSetupMap(map);
 
             this.message(player, this.configuration.language().commandMessageSetupMapLocked);
             return null;
         }
 
-        return map;
+        return this.mutableSetupMap(map);
     }
 
     private @Nullable Location setupTeleportTarget(
@@ -1324,7 +1340,7 @@ public class CommandDeathRun {
             this.signManager.leaveQueue(target);
             this.arenaManager.leaveCurrentMap(target, true);
             this.arenaManager.returnPlayerToHub(target);
-            this.message(target, "&eYou have left the queue and returned to the Hub.");
+            this.message(target, "<yellow>You have left the match and returned to the Hub.");
 
             if (actor != null && actor != target)
                 this.message(actor, this.configuration.language().commandMessageJoinForcedLobbyActor
@@ -1542,15 +1558,15 @@ public class CommandDeathRun {
 
         map.arenaRunnerSpawnLocations = map.arenaRunnerSpawnLocations.stream()
             .map((location) -> this.withWorld(location, world))
-            .toList();
+            .collect(Collectors.toCollection(ArrayList::new));
 
         map.arenaDeathSpawnLocations = map.arenaDeathSpawnLocations.stream()
             .map((location) -> this.withWorld(location, world))
-            .toList();
+            .collect(Collectors.toCollection(ArrayList::new));
 
         map.arenaStartBarrierBlocks = map.arenaStartBarrierBlocks.stream()
             .map((location) -> this.withWorld(location, world))
-            .toList();
+            .collect(Collectors.toCollection(ArrayList::new));
 
         map.arenaCheckpoints = map.arenaCheckpoints.stream()
             .map((checkpoint) -> new Checkpoint(
@@ -1558,14 +1574,14 @@ public class CommandDeathRun {
                 this.withWorld(checkpoint.spawn(), world),
                 checkpoint.locations().stream().map((location) -> this.withWorld(location, world)).toList()
             ))
-            .toList();
+            .collect(Collectors.toCollection(ArrayList::new));
 
         map.teleportPads = map.teleportPads.stream()
             .map((teleportPad) -> new TeleportPad(
                 this.withWorld(teleportPad.padLocation(), world),
                 this.withWorld(teleportPad.teleportLocation(), world)
             ))
-            .toList();
+            .collect(Collectors.toCollection(ArrayList::new));
 
         map.arenaTraps.forEach((trap) -> {
             trap.setButton(this.withWorld(trap.getButton(), world));
@@ -1581,5 +1597,24 @@ public class CommandDeathRun {
         clone.setWorld(world);
         return clone;
         }
+
+    private void ensureMutableSetupCollections(
+            @NotNull MapConfiguration.MapDefinition map
+    ) {
+        map.arenaRunnerSpawnLocations = new ArrayList<>(map.arenaRunnerSpawnLocations);
+        map.arenaDeathSpawnLocations = new ArrayList<>(map.arenaDeathSpawnLocations);
+        map.arenaCheckpoints = new ArrayList<>(map.arenaCheckpoints);
+        map.arenaTraps = new ArrayList<>(map.arenaTraps);
+        map.teleportPads = new ArrayList<>(map.teleportPads);
+        map.arenaStartBarrierBlocks = new ArrayList<>(map.arenaStartBarrierBlocks);
+        map.arenaStartBarrierRestoreMaterials = new ArrayList<>(map.arenaStartBarrierRestoreMaterials);
+    }
+
+    private @NotNull MapConfiguration.MapDefinition mutableSetupMap(
+            @NotNull MapConfiguration.MapDefinition map
+    ) {
+        this.ensureMutableSetupCollections(map);
+        return map;
+    }
 
 }

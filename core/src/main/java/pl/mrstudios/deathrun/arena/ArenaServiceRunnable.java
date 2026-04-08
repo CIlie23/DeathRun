@@ -134,6 +134,11 @@ public class ArenaServiceRunnable extends BukkitRunnable {
         this.resetRoundState();
         for (int i = 0; i < this.map.arenaStartBarrierBlocks.size(); i++) {
             Location location = this.map.arenaStartBarrierBlocks.get(i);
+                        if (location == null || location.getWorld() == null) {
+                                this.plugin.getLogger().warning("Skipping barrier restore for map " + this.resolvedMapId() + " because location world is null.");
+                                continue;
+                        }
+
             org.bukkit.Material restoreMaterial = i < this.map.arenaStartBarrierRestoreMaterials.size()
                     ? this.map.arenaStartBarrierRestoreMaterials.get(i)
                     : org.bukkit.Material.BARRIER;
@@ -610,11 +615,18 @@ public class ArenaServiceRunnable extends BukkitRunnable {
         }
 
         private int requiredPlayersToStart() {
-                int mapCapacity = this.map.arenaRunnerSpawnLocations.size() + this.map.arenaDeathSpawnLocations.size();
-                if (mapCapacity <= 0)
-                        return this.configuration.plugin().arenaMinPlayers;
+                int mapCapacity = this.arenaManager.maxPlayers(this.map);
+                int configuredRequired = this.map.arenaRequiredPlayersToStart != null
+                        ? this.map.arenaRequiredPlayersToStart
+                        : this.configuration.plugin().arenaRequiredPlayersToStart;
 
-                return max(1, min(this.configuration.plugin().arenaMinPlayers, mapCapacity));
+                if (configuredRequired <= 0)
+                        configuredRequired = this.configuration.plugin().arenaMinPlayers;
+
+                if (mapCapacity <= 0)
+                        return max(1, configuredRequired);
+
+                return max(1, min(configuredRequired, mapCapacity));
         }
 
         public int requiredPlayersToStartForDisplay() {

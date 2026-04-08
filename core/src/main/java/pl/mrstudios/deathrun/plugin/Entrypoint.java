@@ -46,6 +46,7 @@ import org.jetbrains.annotations.Nullable;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.lang.reflect.Modifier;
 import java.util.List;
 
 import static com.sk89q.worldedit.WorldEdit.getInstance;
@@ -97,6 +98,11 @@ public class Entrypoint extends JavaPlugin {
                 this.configurationFactory.produce(LanguageConfiguration.class, "language.yml"),
                 this.configurationFactory.produce(MapConfiguration.class, "map.yml")
         );
+
+        /* Data Folders */
+        File songsDirectory = new File(this.getDataFolder(), "songs");
+        if (!songsDirectory.exists() && !songsDirectory.mkdirs())
+            this.getLogger().warning("Failed to create songs directory: " + songsDirectory.getAbsolutePath());
 
         /* Kyori */
         this.audiences = create(this);
@@ -165,20 +171,35 @@ public class Entrypoint extends JavaPlugin {
 
                 /* Suggesters */
                 .argumentSuggestion(String.class, ArgumentKey.of("type"), SuggestionResult.of(this.trapRegistry.trapRegistryKeys()))
-                .argumentSuggestion(String.class, ArgumentKey.of("id"), SuggestionResult.of(
-                    this.configuration.map().resolvedMaps().stream()
-                        .map((map) -> map.id)
-                        .filter(java.util.Objects::nonNull)
+                .argumentSuggester(String.class, ArgumentKey.of("id"), (invocation, argument, context) ->
+                    SuggestionResult.of(this.configuration.map().resolvedMaps().stream()
+                        .map((map) -> {
+                            String id = map.id;
+                            if (id == null || id.isBlank())
+                                id = this.configuration.map().normalizedMapId(map.name);
+                            return id;
+                        })
+                        .filter((id) -> id != null && !id.isBlank())
+                        .distinct()
                         .toList()
-                ))
-                .argumentSuggestion(String.class, ArgumentKey.of("map"), SuggestionResult.of(
-                    java.util.stream.Stream.concat(
-                        java.util.stream.Stream.of("lobby"),
-                        this.configuration.map().resolvedMaps().stream()
-                            .map((map) -> map.id)
-                            .filter(java.util.Objects::nonNull)
-                    ).toArray(String[]::new)
-                ))
+                    )
+                )
+                .argumentSuggester(String.class, ArgumentKey.of("map"), (invocation, argument, context) ->
+                    SuggestionResult.of(java.util.stream.Stream.concat(
+                            java.util.stream.Stream.of("lobby"),
+                            this.configuration.map().resolvedMaps().stream()
+                                .map((map) -> {
+                                    String id = map.id;
+                                    if (id == null || id.isBlank())
+                                        id = this.configuration.map().normalizedMapId(map.name);
+                                    return id;
+                                })
+                                .filter((id) -> id != null && !id.isBlank())
+                        )
+                        .distinct()
+                        .toList()
+                    )
+                )
                 .argumentSuggestion(String.class, ArgumentKey.of("world"), SuggestionResult.of(
                     this.getServer().getWorlds().stream()
                         .map(org.bukkit.World::getName)
@@ -190,57 +211,22 @@ public class Entrypoint extends JavaPlugin {
 
         /* Register Listeners */
         List<Class<? extends Listener>> listenerClasses = new Reflections<Listener>("pl.mrstudios.deathrun.arena.listener")
-            .getClassesImplementing(Listener.class).stream().filter(
-                (listener) -> stream(listener.getConstructors())
-                    .anyMatch((constructor) -> constructor.isAnnotationPresent(Inject.class))
-            ).toList();
+            .getClassesImplementing(Listener.class).stream()
+            .filter((listener) -> !Modifier.isAbstract(listener.getModifiers()))
+            .toList();
 
-        listenerClasses.forEach(
-                (listener) -> this.getServer().getPluginManager()
-                    .registerEvents(this.injector.inject(listener), this)
-            );
-
-        this.getLogger().info("Registered listeners via reflection: " + listenerClasses.size());
-
-        if (listenerClasses.stream().noneMatch((listener) -> listener.equals(ArenaCheckpointReachedListener.class))) {
-            this.getServer().getPluginManager().registerEvents(this.injector.inject(ArenaCheckpointReachedListener.class), this);
-            this.getLogger().warning("Checkpoint listener was not found by reflection, registered fallback explicitly.");
+        int registeredListeners = 0;
+        for (Class<? extends Listener> listenerClass : listenerClasses) {
+            try {
+                this.getServer().getPluginManager().registerEvents(this.injector.inject(listenerClass), this);
+                registeredListeners++;
+            } catch (Exception exception) {
+                this.getLogger().warning("Failed to register listener via reflection: " + listenerClass.getName());
+                this.getLogger().warning("Reason: " + exception.getMessage());
+            }
         }
 
-        if (listenerClasses.stream().noneMatch((listener) -> listener.equals(ArenaClickItemListener.class))) {
-            this.getServer().getPluginManager().registerEvents(this.injector.inject(ArenaClickItemListener.class), this);
-            this.getLogger().warning("Click item listener was not found by reflection, registered fallback explicitly.");
-        }
-
-        if (listenerClasses.stream().noneMatch((listener) -> listener.equals(ArenaMapSelectorListener.class))) {
-            this.getServer().getPluginManager().registerEvents(this.injector.inject(ArenaMapSelectorListener.class), this);
-            this.getLogger().warning("Map selector listener was not found by reflection, registered fallback explicitly.");
-        }
-
-        if (listenerClasses.stream().noneMatch((listener) -> listener.equals(ArenaBoosterListener.class))) {
-            this.getServer().getPluginManager().registerEvents(this.injector.inject(ArenaBoosterListener.class), this);
-            this.getLogger().warning("Booster listener was not found by reflection, registered fallback explicitly.");
-        }
-
-        if (listenerClasses.stream().noneMatch((listener) -> listener.equals(ArenaInventoryActionListener.class))) {
-            this.getServer().getPluginManager().registerEvents(this.injector.inject(ArenaInventoryActionListener.class), this);
-            this.getLogger().warning("Inventory action listener was not found by reflection, registered fallback explicitly.");
-        }
-
-        if (listenerClasses.stream().noneMatch((listener) -> listener.equals(ArenaSignCreateListener.class))) {
-            this.getServer().getPluginManager().registerEvents(this.injector.inject(ArenaSignCreateListener.class), this);
-            this.getLogger().warning("Sign create listener was not found by reflection, registered fallback explicitly.");
-        }
-
-        if (listenerClasses.stream().noneMatch((listener) -> listener.equals(ArenaSignInteractListener.class))) {
-            this.getServer().getPluginManager().registerEvents(this.injector.inject(ArenaSignInteractListener.class), this);
-            this.getLogger().warning("Sign interact listener was not found by reflection, registered fallback explicitly.");
-        }
-
-        if (listenerClasses.stream().noneMatch((listener) -> listener.equals(ArenaSignBreakListener.class))) {
-            this.getServer().getPluginManager().registerEvents(this.injector.inject(ArenaSignBreakListener.class), this);
-            this.getLogger().warning("Sign break listener was not found by reflection, registered fallback explicitly.");
-        }
+        this.getLogger().info("Registered listeners via reflection: " + registeredListeners + "/" + listenerClasses.size());
 
         /* Initialize API */
         createInstance(java.util.Objects.requireNonNullElseGet(this.arenaManager.primaryArena(), () -> new Arena("default")), this.trapRegistry);

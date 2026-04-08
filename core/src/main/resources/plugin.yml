@@ -47,11 +47,17 @@ permissions:
   deathrun.signs.create:
     description: "Allows creating DeathRun queue signs"
     default: op
+  deathrun.signs.use:
+    description: "Allows using DeathRun queue signs"
+    default: true
   deathrun.signs.break:
     description: "Allows breaking DeathRun queue signs"
     default: op
   deathrun.inventory.bypass:
     description: "Allows bypassing DeathRun inventory/drop/pickup restrictions"
+    default: op
+  deathrun.build.bypass:
+    description: "Allows bypassing DeathRun block/place interaction restrictions"
     default: op
 
 # Plugin Data

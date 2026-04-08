@@ -78,7 +78,7 @@ public class LanguageConfiguration extends OkaeriConfig {
             "<reset> <b>*</b> <white>/deathrun setup maps fixbarrier <id>",
             "<reset> <b>*</b> <white>/deathrun setup maps backup <id>",
             "<reset> <b>*</b> <white>/deathrun setup maps autofix <id>",
-            "<reset> <b>*</b> <white>/deathrun setup setname <name>",
+            "<reset> <b>*</b> <white>/deathrun setup create <name>",
             "<reset> <b>*</b> <white>/deathrun setup setwaitinglobby",
             "<reset> <b>*</b> <white>/deathrun setup setstartbarrier (material)",
             "<reset> <b>*</b> <white>/deathrun setup addspawn <death/runner>",

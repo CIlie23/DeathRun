@@ -48,7 +48,7 @@ public class InvalidCommandUsageHandler implements InvalidUsageHandler<CommandSe
             return "<gray>Setup commands: <white>/deathrun setup";
         }
 
-        return "<red>Invalid setup usage. <gray>Try: <white>/deathrun setup setname <name><dark_gray>, <white>setwaitinglobby<dark_gray>, <white>setstartbarrier (material)<dark_gray>, <white>addspawn <death/runner><dark_gray>, <white>addtrap <type> (args)<dark_gray>, <white>addcheckpoint<dark_gray>, <white>addteleport<dark_gray>, <white>save";
+        return "<red>Invalid setup usage. <gray>Try: <white>/deathrun setup create <name><dark_gray>, <white>setwaitinglobby<dark_gray>, <white>setstartbarrier (material)<dark_gray>, <white>addspawn <death/runner><dark_gray>, <white>addtrap <type> (args)<dark_gray>, <white>addcheckpoint<dark_gray>, <white>addteleport<dark_gray>, <white>save";
     }
 
 }

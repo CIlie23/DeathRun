@@ -149,8 +149,26 @@ public class SignManager {
                 .add(player.getUniqueId());
         this.playerQueue.put(player.getUniqueId(), normalizedMapId);
 
-        if (runtime.map().arenaWaitingLobbyLocation != null)
-            player.teleport(runtime.map().arenaWaitingLobbyLocation);
+        if (runtime.map().arenaWaitingLobbyLocation != null) {
+            Location waitingLobby = runtime.map().arenaWaitingLobbyLocation;
+            if (waitingLobby.getWorld() == null) {
+                String worldName = runtime.map().world;
+                World mapWorld = worldName == null || worldName.isBlank() ? null : this.plugin.getServer().getWorld(worldName);
+                if (mapWorld == null) {
+                    this.plugin.getLogger().severe("[DeathRun] Queue teleport cancelled for player " + player.getName()
+                            + " on map " + normalizedMapId
+                            + " because waiting lobby location has null world and configured world is unavailable.");
+                    player.sendMessage(ChatColor.RED + "This map is currently misconfigured (waiting lobby world missing). Please contact staff.");
+                    return true;
+                }
+
+                waitingLobby = waitingLobby.clone();
+                waitingLobby.setWorld(mapWorld);
+                runtime.map().arenaWaitingLobbyLocation = waitingLobby;
+            }
+
+            player.teleport(waitingLobby);
+        }
 
         return true;
     }

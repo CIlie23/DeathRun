@@ -51,6 +51,12 @@ public class PluginConfiguration extends OkaeriConfig {
     @Comment({ "", "Minimum amount of players that is needed to game start." })
     public int arenaMinPlayers = 5;
 
+        @Comment({ "", "Stable required players threshold to start a round. 0 or less means fallback to arena-min-players." })
+        public int arenaRequiredPlayersToStart = 0;
+
+        @Comment({ "", "Max players in one map. 0 or less means auto based on configured spawn points." })
+        public int arenaMaxPlayers = 0;
+
     @Comment({ "", "Amount of players with 'DEATH' role on arena." })
     public int arenaDeathsAmount = 1;
 

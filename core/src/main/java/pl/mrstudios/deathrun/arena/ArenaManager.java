@@ -71,6 +71,7 @@ public class ArenaManager {
         this.runtimesByMapId.clear();
 
         for (MapConfiguration.MapDefinition map : this.configuration.map().resolvedMaps()) {
+            this.ensureMapWorldBindings(map);
             String mapId = this.mapId(map);
             Arena arena = new Arena(this.mapName(map));
             ArenaServiceRunnable service = new ArenaServiceRunnable(arena, map, this, this.winMapManager, this.plugin, this.server, this.audiences, this.configuration);
@@ -137,6 +138,8 @@ public class ArenaManager {
         MapConfiguration.MapDefinition map = this.configuration.map().getMapById(normalizedMapId);
         if (map == null)
             return;
+
+        this.ensureMapWorldBindings(map);
 
         Arena arena = new Arena(this.mapName(map));
         ArenaServiceRunnable service = new ArenaServiceRunnable(arena, map, this, this.winMapManager, this.plugin, this.server, this.audiences, this.configuration);
@@ -347,6 +350,11 @@ public class ArenaManager {
         player.setAllowFlight(false);
         player.setFoodLevel(20);
         player.setSaturation(20.0f);
+
+        this.server.getOnlinePlayers().forEach((onlinePlayer) -> {
+            onlinePlayer.showPlayer(this.plugin, player);
+            player.showPlayer(this.plugin, onlinePlayer);
+        });
         }
 
     public @Nullable Arena primaryArena() {
@@ -359,7 +367,18 @@ public class ArenaManager {
     public int maxPlayers(
             @NotNull MapConfiguration.MapDefinition map
     ) {
-        return map.arenaRunnerSpawnLocations.size() + map.arenaDeathSpawnLocations.size();
+        int spawnCapacity = map.arenaRunnerSpawnLocations.size() + map.arenaDeathSpawnLocations.size();
+        int configuredMax = map.arenaMaxPlayers != null
+                ? map.arenaMaxPlayers
+                : this.configuration.plugin().arenaMaxPlayers;
+
+        if (configuredMax <= 0)
+            return Math.max(1, spawnCapacity);
+
+        if (spawnCapacity <= 0)
+            return configuredMax;
+
+        return Math.max(1, Math.min(configuredMax, spawnCapacity));
     }
 
     public boolean isMapConfigured(
@@ -386,8 +405,24 @@ public class ArenaManager {
         player.setFoodLevel(20);
         player.setSaturation(20.0f);
 
-        if (map.arenaWaitingLobbyLocation != null)
-            player.teleport(map.arenaWaitingLobbyLocation);
+        if (map.arenaWaitingLobbyLocation != null) {
+            Location waitingLobby = map.arenaWaitingLobbyLocation;
+            if (waitingLobby.getWorld() == null) {
+                World fallbackWorld = (map.world == null || map.world.isBlank()) ? null : this.server.getWorld(map.world);
+                if (fallbackWorld == null) {
+                    this.plugin.getLogger().severe("[DeathRun] Waiting teleport cancelled for player " + player.getName()
+                            + " because map " + this.mapId(map)
+                            + " has waiting lobby location with null world and configured world is unavailable.");
+                } else {
+                    waitingLobby = waitingLobby.clone();
+                    waitingLobby.setWorld(fallbackWorld);
+                    map.arenaWaitingLobbyLocation = waitingLobby;
+                }
+            }
+
+            if (waitingLobby.getWorld() != null)
+                player.teleport(waitingLobby);
+        }
 
         player.addPotionEffect(new PotionEffect(SATURATION, MAX_VALUE, 1, false, false, false));
         player.addPotionEffect(new PotionEffect(NIGHT_VISION, MAX_VALUE, 1, false, false, false));
@@ -426,6 +461,55 @@ public class ArenaManager {
         String stripped = ChatColor.stripColor(player.getDisplayName());
         return stripped == null || stripped.isBlank() ? player.getName() : stripped;
     }
+
+        private void ensureMapWorldBindings(
+            @NotNull MapConfiguration.MapDefinition map
+        ) {
+        if (map.world == null || map.world.isBlank())
+            return;
+
+        World world = this.server.getWorld(map.world);
+        if (world == null)
+            return;
+
+        if (map.arenaWaitingLobbyLocation != null && map.arenaWaitingLobbyLocation.getWorld() == null) {
+            Location clone = map.arenaWaitingLobbyLocation.clone();
+            clone.setWorld(world);
+            map.arenaWaitingLobbyLocation = clone;
+        }
+
+        map.arenaRunnerSpawnLocations = map.arenaRunnerSpawnLocations.stream()
+            .map((location) -> this.withWorldIfMissing(location, world))
+            .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
+        map.arenaDeathSpawnLocations = map.arenaDeathSpawnLocations.stream()
+            .map((location) -> this.withWorldIfMissing(location, world))
+            .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
+        map.arenaStartBarrierBlocks = map.arenaStartBarrierBlocks.stream()
+            .map((location) -> this.withWorldIfMissing(location, world))
+            .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
+
+        map.arenaCheckpoints = map.arenaCheckpoints.stream()
+            .map((checkpoint) -> new pl.mrstudios.deathrun.arena.checkpoint.Checkpoint(
+                checkpoint.id(),
+                this.withWorldIfMissing(checkpoint.spawn(), world),
+                checkpoint.locations().stream()
+                    .map((location) -> this.withWorldIfMissing(location, world))
+                    .toList()
+            ))
+            .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
+        }
+
+        private @NotNull Location withWorldIfMissing(
+            @NotNull Location location,
+            @NotNull World world
+        ) {
+        if (location.getWorld() != null)
+            return location;
+
+        Location clone = location.clone();
+        clone.setWorld(world);
+        return clone;
+        }
 
     private void resetPlayerScoreboard(
             @NotNull Player player

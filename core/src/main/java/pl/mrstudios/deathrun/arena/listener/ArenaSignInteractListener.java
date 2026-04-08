@@ -42,6 +42,12 @@ public class ArenaSignInteractListener implements Listener {
         if (queueSign == null)
             return;
 
+        if (!event.getPlayer().hasPermission("deathrun.signs.use")) {
+            event.setCancelled(true);
+            event.getPlayer().sendMessage(ChatColor.RED + "You don't have permission to use DeathRun signs.");
+            return;
+        }
+
         event.setCancelled(true);
 
         switch (queueSign.type()) {
@@ -78,7 +84,7 @@ public class ArenaSignInteractListener implements Listener {
                 }
 
                 this.arenaManager.returnPlayerToHub(event.getPlayer());
-                event.getPlayer().sendMessage(ChatColor.translateAlternateColorCodes('&', "&eYou have left the queue and returned to the Hub."));
+                event.getPlayer().sendMessage(ChatColor.YELLOW + "You have left the match and returned to the Hub.");
             }
 
         }

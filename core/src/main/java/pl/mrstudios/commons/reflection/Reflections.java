@@ -53,9 +53,10 @@ public class Reflections<T> {
     private @NotNull Set<Class<?>> scan() {
         String packagePath = this.packageName.replace('.', '/');
         Set<Class<?>> classes = new HashSet<>();
+        ClassLoader classLoader = this.getClass().getClassLoader();
 
         try {
-            Enumeration<URL> resources = Thread.currentThread().getContextClassLoader().getResources(packagePath);
+            Enumeration<URL> resources = classLoader.getResources(packagePath);
             while (resources.hasMoreElements()) {
                 URL resource = resources.nextElement();
                 String protocol = resource.getProtocol();
@@ -123,7 +124,7 @@ public class Reflections<T> {
 
     private void tryLoad(@NotNull String className, @NotNull Set<Class<?>> classes) {
         try {
-            classes.add(Class.forName(className));
+            classes.add(Class.forName(className, false, this.getClass().getClassLoader()));
         }
         catch (ClassNotFoundException ignored) {
         }
