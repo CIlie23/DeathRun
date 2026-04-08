@@ -126,31 +126,34 @@ public class ArenaBoosterListener implements Listener {
 
                                 }
 
-                                int boosterDelay = (int) (this.delay.get(event.getPlayer().getName()).get(booster) - currentTimeMillis()) / 1000;
+                                long expiresAt = this.delay.get(event.getPlayer().getName()).get(booster);
+                                long remainingMillis = expiresAt - currentTimeMillis();
+                                int boosterDelay = (int) Math.ceil(remainingMillis / 1000.0d);
+
+                                if (boosterDelay <= 0) {
+                                    event.getPlayer().getInventory().setItem(
+                                            booster.slot(),
+                                            new ItemBuilder(booster.item().material())
+                                                    .name(miniMessage().deserialize(booster.item().name()))
+                                                    .texture((booster.item().texture() != null) ? requireNonNull(booster.item().texture()) : "")
+                                                    .itemFlags(values())
+                                                    .build()
+                                    );
+
+                                    if (taskId.get() != -1)
+                                        this.server.getScheduler().cancelTask(taskId.get());
+
+                                    return;
+                                }
 
                                 event.getPlayer().getInventory().setItem(
                                         booster.slot(),
-                                        new ItemBuilder(booster.delayItem().material(), boosterDelay)
+                                        new ItemBuilder(booster.delayItem().material(), Math.max(1, boosterDelay))
                                                 .name(miniMessage().deserialize(booster.delayItem().name().replace("<delay>", valueOf(boosterDelay))))
                                                 .texture((booster.delayItem().texture() != null) ? requireNonNull(booster.delayItem().texture()) : "")
                                                 .itemFlags(values())
                                                 .build()
                                 );
-
-                                if (boosterDelay >= 1)
-                                    return;
-
-                                event.getPlayer().getInventory().setItem(
-                                        booster.slot(),
-                                        new ItemBuilder(booster.item().material())
-                                                .name(miniMessage().deserialize(booster.item().name()))
-                                                .texture((booster.item().texture() != null) ? requireNonNull(booster.item().texture()) : "")
-                                                .itemFlags(values())
-                                                .build()
-                                );
-
-                                if (taskId.get() != -1)
-                                    this.server.getScheduler().cancelTask(taskId.get());
 
                             }, 0L, 20L)
                     );

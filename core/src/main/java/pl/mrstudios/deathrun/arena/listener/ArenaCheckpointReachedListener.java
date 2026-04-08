@@ -26,7 +26,10 @@ import pl.mrstudios.deathrun.config.impl.MapConfiguration;
 import pl.mrstudios.deathrun.plugin.Entrypoint;
 
 import java.awt.image.BufferedImage;
+import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static java.lang.String.valueOf;
 import static java.time.Duration.ofMillis;
@@ -52,6 +55,7 @@ public class ArenaCheckpointReachedListener implements Listener {
     private final BukkitAudiences audiences;
     private final Configuration configuration;
         private final WinMapManager winMapManager;
+        private final Map<UUID, Integer> progressionByPlayer = new ConcurrentHashMap<>();
 
     @Inject
     public ArenaCheckpointReachedListener(
@@ -116,38 +120,50 @@ public class ArenaCheckpointReachedListener implements Listener {
     ) {
         Arena arena = this.arenaManager.arenaForPlayer(player);
         MapConfiguration.MapDefinition map = this.arenaManager.mapForPlayer(player);
-        if (arena == null || map == null)
+                if (arena == null || map == null) {
+                        this.progressionByPlayer.remove(player.getUniqueId());
             return;
+                }
 
-                if (arena.getGameState() != PLAYING)
+                                if (arena.getGameState() != PLAYING) {
+                                                this.progressionByPlayer.remove(player.getUniqueId());
                         return;
+                                }
 
         if (map.arenaCheckpoints.isEmpty())
             return;
 
         IUser user = arena.getUser(player);
-                if (user == null)
+                                if (user == null) {
+                        this.progressionByPlayer.remove(player.getUniqueId());
             return;
+                                }
 
-                if (user.getRole() != RUNNER)
+                                if (user.getRole() != RUNNER) {
+                        this.progressionByPlayer.remove(player.getUniqueId());
             return;
+                                }
 
-        var candidate = map.arenaCheckpoints.stream()
-                                .filter((checkpoint) -> this.isInsideCheckpointRegion(checkpoint, probeLocation))
-                .findFirst();
+                int touchedIndex = -1;
+                for (int i = 0; i < map.arenaCheckpoints.size(); i++) {
+                        if (!this.isInsideCheckpointRegion(map.arenaCheckpoints.get(i), probeLocation))
+                                continue;
 
-                if (candidate.isEmpty())
-            return;
+                        touchedIndex = i;
+                        break;
+                }
 
-        var checkpoint = candidate.get();
+                                if (touchedIndex < 0)
+                        return;
 
-        Checkpoint finishCheckpoint = this.finishCheckpoint(map);
-        boolean isLastCheckpoint = finishCheckpoint != null && checkpoint.id().equals(finishCheckpoint.id());
-        int currentCheckpointId = user.getCheckpoint() == null ? Integer.MIN_VALUE : user.getCheckpoint().id();
-                Checkpoint expectedNextCheckpoint = this.expectedNextCheckpoint(map, currentCheckpointId);
+                int lastCompletedIndex = this.progressionByPlayer.getOrDefault(player.getUniqueId(), -1);
+                int expectedIndex = lastCompletedIndex + 1;
 
-                                if (expectedNextCheckpoint == null || checkpoint.id() != expectedNextCheckpoint.id())
-            return;
+                if (touchedIndex != expectedIndex)
+                        return;
+
+                Checkpoint checkpoint = map.arenaCheckpoints.get(touchedIndex);
+                this.progressionByPlayer.put(player.getUniqueId(), touchedIndex);
 
         UserArenaCheckpointEvent userArenaCheckpointEvent = new UserArenaCheckpointEvent(user, checkpoint);
         this.server.getPluginManager().callEvent(userArenaCheckpointEvent);
@@ -176,8 +192,15 @@ public class ArenaCheckpointReachedListener implements Listener {
         this.audiences.player(player).sendMessage(miniMessage().deserialize(
                 this.configuration.language().chatMessageArenaCheckpointReached
                         .replace("<checkpoint>", valueOf(checkpoint.id()))
+                        .replace("<checkpointName>", this.displayCheckpointName(checkpoint))
         ));
-        if (!isLastCheckpoint)
+
+        Checkpoint finishCheckpoint = this.finishCheckpoint(map);
+        int finishIndex = finishCheckpoint == null ? -1 : map.arenaCheckpoints.indexOf(finishCheckpoint);
+        boolean completedFullSequence = touchedIndex == map.arenaCheckpoints.size() - 1;
+        boolean reachedFinishCheckpoint = finishIndex >= 0 && touchedIndex == finishIndex;
+
+        if (!completedFullSequence || !reachedFinishCheckpoint)
             return;
 
         arena.setFinishedRuns(arena.getFinishedRuns() + 1);
@@ -261,29 +284,6 @@ public class ArenaCheckpointReachedListener implements Listener {
 
     }
 
-        private @Nullable Checkpoint expectedNextCheckpoint(
-            @NotNull MapConfiguration.MapDefinition map,
-            int currentCheckpointId
-    ) {
-                if (map.arenaCheckpoints.isEmpty())
-                        return null;
-
-                if (currentCheckpointId == Integer.MIN_VALUE)
-                        return map.arenaCheckpoints.get(0);
-
-                for (int i = 0; i < map.arenaCheckpoints.size(); i++) {
-                        if (map.arenaCheckpoints.get(i).id() != currentCheckpointId)
-                                continue;
-
-                        if (i + 1 >= map.arenaCheckpoints.size())
-                                return null;
-
-                        return map.arenaCheckpoints.get(i + 1);
-                }
-
-                return map.arenaCheckpoints.get(0);
-    }
-
         private @Nullable Checkpoint finishCheckpoint(
                         @NotNull MapConfiguration.MapDefinition map
         ) {
@@ -334,5 +334,14 @@ public class ArenaCheckpointReachedListener implements Listener {
         String stripped = ChatColor.stripColor(player.getDisplayName());
         return stripped == null || stripped.isBlank() ? player.getName() : stripped;
     }
+
+        private @NotNull String displayCheckpointName(
+                        @NotNull Checkpoint checkpoint
+        ) {
+                if (checkpoint.name() == null || checkpoint.name().isBlank())
+                        return "#" + checkpoint.id();
+
+                return checkpoint.name();
+        }
 
 }

@@ -37,7 +37,7 @@ public class LanguageConfiguration extends OkaeriConfig {
     public String chatMessageArenaPlayerJoined = "<gray><player> <yellow>has joined. <aqua>(<currentPlayers>/<maxPlayers>)";
     public String chatMessageArenaPlayerLeft = "<gray><player> <yellow>has quit.";
     public String chatMessageArenaStartingTimer = "<yellow>Game starts in <gold><timer> seconds<yellow>.";
-        public String chatMessageArenaCheckpointReached = "<gold>Checkpoint reached: <yellow>#<checkpoint>";
+        public String chatMessageArenaCheckpointReached = "<gold>Checkpoint reached: <yellow><checkpointName>";
     public String chatMessageArenaPlayerFinished = "<reset> <white><b>FINISH ></b> <gray>Player <gold><player> <gray>has finished game in <white><seconds> seconds<gray>. <dark_gray>(#<finishPosition>)";
 
     @Comment({
@@ -88,6 +88,8 @@ public class LanguageConfiguration extends OkaeriConfig {
             "<reset> <b>*</b> <white>/deathrun setup checkpoint tp <id>",
             "<reset> <b>*</b> <white>/deathrun setup checkpoint tp <map> <id>",
             "<reset> <b>*</b> <white>/deathrun setup checkpoint setorder <id> <position>",
+            "<reset> <b>*</b> <white>/deathrun setup checkpoint setname <index> <name>",
+            "<reset> <b>*</b> <white>/deathrun setup checkpoint setnameid <id> <name>",
             "<reset> <b>*</b> <white>/deathrun setup checkpoint setfinish <id>",
             "<reset> <b>*</b> <white>/deathrun setup checkpoint move <id>",
             "<reset> <b>*</b> <white>/deathrun setup checkpoint delete <id>",
@@ -103,6 +105,7 @@ public class LanguageConfiguration extends OkaeriConfig {
                 public String commandMessageCheckpointNotFound = "<reset> <dark_red><b>*</b> <red>Checkpoint <dark_red>#<checkpoint> <red>was not found on map <dark_red><map><red>.";
                 public String commandMessageCheckpointDeleted = "<reset> <dark_green><b>*</b> <green>Deleted checkpoint <dark_green>#<checkpoint> <green>from map <dark_green><map><green>.";
                 public String commandMessageCheckpointOrderUpdated = "<reset> <dark_green><b>*</b> <green>Moved checkpoint <dark_green>#<checkpoint> <green>to position <dark_green><position><green>.";
+                public String commandMessageCheckpointNameSet = "<reset> <dark_green><b>*</b> <green>Renamed checkpoint <dark_green>#<checkpoint> <green>to <dark_green><name><green>.";
                 public String commandMessageCheckpointFinishSet = "<reset> <dark_green><b>*</b> <green>Checkpoint <dark_green>#<checkpoint> <green>is now the finish checkpoint.";
                 public String commandMessageCheckpointMoved = "<reset> <dark_green><b>*</b> <green>Moved checkpoint <dark_green>#<checkpoint> <green>spawn to your current location.";
     public String commandMessageRoleInvalid = "<reset> <dark_red><b>*</b> <red>You must select <dark_red>RUNNER <red>or <dark_red>DEATH <red>role.";
@@ -162,6 +165,8 @@ public class LanguageConfiguration extends OkaeriConfig {
         public String commandMessageSetupMapInvalidWorld = "<reset> <dark_red><b>*</b> <red>World <dark_red><world> <red>is not loaded.";
         public String commandMessageSetupMapNoSelection = "<reset> <dark_red><b>*</b> <red>Select setup map first using <white>/deathrun setup maps use <id><red>.";
         public String commandMessageSetupMapLocked = "<reset> <dark_red><b>*</b> <red>Selected map setup is disabled. Re-enable it in map.yml or create a new map.";
+        public String commandMessageSetupEditModeRequired = "<reset> <dark_red><b>*</b> <red>You must be in edit mode to use this command. Use <white>/deathrun setup maps use <mapname> <red>first.";
+        public String commandMessageSetupEditModeAlreadyActive = "<reset> <gold><b>*</b> <yellow>You are already in edit mode. Please finish editing your current map first.";
         public String commandMessageSetupEditModeEntered = "<reset> <dark_green><b>*</b> <green>Edit mode enabled for map <dark_green><map><green>.";
         public String commandMessageSetupEditModeSaved = "<reset> <dark_green><b>*</b> <green>Editing complete; all changes have been saved.";
         public String commandMessageSetupMapListLine = "<reset> <gray>- <white><id> <dark_gray>| <white><name> <dark_gray>| <white><world> <dark_gray>| <white><state>";

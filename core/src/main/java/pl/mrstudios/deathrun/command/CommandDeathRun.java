@@ -281,6 +281,11 @@ public class CommandDeathRun {
             @Context Player player,
             @Arg("id") String id
     ) {
+        if (this.setupEditModePlayers.contains(player.getUniqueId())) {
+            this.message(player, this.configuration.language().commandMessageSetupEditModeAlreadyActive);
+            return;
+        }
+
         this.configuration.map().ensureMapsMutable();
         MapConfiguration.MapDefinition map = this.configuration.map().getMapById(id);
         if (map == null) {
@@ -691,8 +696,9 @@ public class CommandDeathRun {
         }
 
         int checkpointId = map.arenaCheckpoints.size();
+        checkpointId = checkpointId + 1;
         map.arenaCheckpoints.add(
-            new Checkpoint(checkpointId, player.getLocation().toCenterLocation(), selectedLocations)
+            new Checkpoint(checkpointId, player.getLocation().toCenterLocation(), selectedLocations, "")
         );
 
         this.message(player, this.configuration.language().commandMessageCheckpointAdded
@@ -719,15 +725,18 @@ public class CommandDeathRun {
 
         String normalizedMapId = this.configuration.map().normalizedMapId(map.id);
         this.message(player, PREFIX + "<gray>Checkpoints for <white>" + this.safe(map.id) + "<gray>:");
-        map.arenaCheckpoints.stream()
-                .sorted((first, second) -> Integer.compare(first.id(), second.id()))
-                .forEach((checkpoint) -> {
+        for (int i = 0; i < map.arenaCheckpoints.size(); i++) {
+            Checkpoint checkpoint = map.arenaCheckpoints.get(i);
                     Location spawn = checkpoint.spawn();
-                    String line = "<gray>#<white>" + checkpoint.id()
+                String displayName = (checkpoint.name() == null || checkpoint.name().isBlank())
+                    ? "#" + checkpoint.id()
+                    : checkpoint.name();
+
+                    String line = "<gray>[<white>" + (i + 1) + "<gray>] <white>" + displayName
                             + " <dark_gray>- <gray>" + spawn.getBlockX() + ", " + spawn.getBlockY() + ", " + spawn.getBlockZ()
                             + " <dark_gray>| <click:run_command:'/deathrun setup checkpoint tp " + normalizedMapId + " " + checkpoint.id() + "'><green>[Teleport]</green></click>";
                     this.message(player, line);
-                });
+            }
     }
 
     @Execute(name = "setup checkpoint tp")
@@ -751,7 +760,7 @@ public class CommandDeathRun {
         }
 
         player.teleport(checkpoint.spawn());
-        this.message(player, PREFIX + "<gray>Teleported to checkpoint <white>#" + checkpoint.id() + "<gray> at <white>"
+        this.message(player, PREFIX + "<gray>Teleported to checkpoint <white>" + this.displayCheckpointNumber(map, checkpoint.id()) + "<gray> at <white>"
                 + checkpoint.spawn().getBlockX() + ", " + checkpoint.spawn().getBlockY() + ", " + checkpoint.spawn().getBlockZ());
     }
 
@@ -783,7 +792,7 @@ public class CommandDeathRun {
 
         this.setupMapSelection.put(player.getUniqueId(), this.configuration.map().normalizedMapId(map.id));
         player.teleport(checkpoint.spawn());
-        this.message(player, PREFIX + "<gray>Teleported to checkpoint <white>#" + checkpoint.id() + "<gray> at <white>"
+        this.message(player, PREFIX + "<gray>Teleported to checkpoint <white>" + this.displayCheckpointNumber(map, checkpoint.id()) + "<gray> at <white>"
                 + checkpoint.spawn().getBlockX() + ", " + checkpoint.spawn().getBlockY() + ", " + checkpoint.spawn().getBlockZ());
     }
 
@@ -817,10 +826,11 @@ public class CommandDeathRun {
         }
 
         map.arenaCheckpoints = checkpoints;
+        this.normalizeCheckpointIds(map);
         if (map.arenaFinishCheckpointId != null && map.arenaFinishCheckpointId == removed.id())
             map.arenaFinishCheckpointId = null;
         this.message(player, this.configuration.language().commandMessageCheckpointDeleted
-                .replace("<checkpoint>", String.valueOf(removed.id()))
+            .replace("<checkpoint>", String.valueOf(this.displayCheckpointNumber(map, removed.id())))
                 .replace("<map>", this.safe(map.id)));
     }
 
@@ -867,9 +877,10 @@ public class CommandDeathRun {
         Checkpoint checkpoint = reordered.remove(sourceIndex);
         reordered.add(targetIndex, checkpoint);
         map.arenaCheckpoints = reordered;
+        this.normalizeCheckpointIds(map);
 
         this.message(player, this.configuration.language().commandMessageCheckpointOrderUpdated
-                .replace("<checkpoint>", String.valueOf(checkpointId))
+            .replace("<checkpoint>", String.valueOf(this.displayCheckpointNumber(map, checkpoint.id())))
                 .replace("<position>", String.valueOf(targetIndex + 1)));
     }
 
@@ -907,10 +918,86 @@ public class CommandDeathRun {
         Checkpoint checkpoint = reordered.remove(sourceIndex);
         reordered.add(checkpoint);
         map.arenaCheckpoints = reordered;
-        map.arenaFinishCheckpointId = checkpoint.id();
+        this.normalizeCheckpointIds(map);
+        map.arenaFinishCheckpointId = map.arenaCheckpoints.get(map.arenaCheckpoints.size() - 1).id();
 
         this.message(player, this.configuration.language().commandMessageCheckpointFinishSet
-                .replace("<checkpoint>", String.valueOf(checkpoint.id())));
+            .replace("<checkpoint>", String.valueOf(this.displayCheckpointNumber(map, map.arenaFinishCheckpointId))));
+    }
+
+    @Execute(name = "setup checkpoint setname")
+    @Permission("mrstudios.command.deathrun.setup")
+    public void setupCheckpointSetName(
+            @Context Player player,
+            @Arg("index") int index,
+            @Arg("name") String name
+    ) {
+        MapConfiguration.MapDefinition map = this.selectedMapForSetup(player, true);
+        if (map == null)
+            return;
+
+        this.ensureMutableSetupCollections(map);
+
+        if (map.arenaCheckpoints.isEmpty()) {
+            this.message(player, PREFIX + "<gray>No checkpoints set for map <white>" + this.safe(map.id) + "<gray>.");
+            return;
+        }
+
+        int targetIndex = index - 1;
+        if (targetIndex < 0 || targetIndex >= map.arenaCheckpoints.size()) {
+            this.message(player, this.configuration.language().commandMessageCheckpointNotFound
+                    .replace("<checkpoint>", String.valueOf(index))
+                    .replace("<map>", this.safe(map.id)));
+            return;
+        }
+
+        Checkpoint checkpoint = map.arenaCheckpoints.get(targetIndex);
+        map.arenaCheckpoints.set(targetIndex, new Checkpoint(
+                checkpoint.id(),
+                checkpoint.spawn(),
+                checkpoint.locations(),
+                name
+        ));
+
+        this.message(player, this.configuration.language().commandMessageCheckpointNameSet
+            .replace("<checkpoint>", String.valueOf(this.displayCheckpointNumber(map, checkpoint.id())))
+                .replace("<name>", name));
+    }
+
+    @Execute(name = "setup checkpoint setnameid")
+    @Permission("mrstudios.command.deathrun.setup")
+    public void setupCheckpointSetNameById(
+            @Context Player player,
+            @Arg("id") int checkpointId,
+            @Arg("name") String name
+    ) {
+        MapConfiguration.MapDefinition map = this.selectedMapForSetup(player, true);
+        if (map == null)
+            return;
+
+        this.ensureMutableSetupCollections(map);
+
+        for (int i = 0; i < map.arenaCheckpoints.size(); i++) {
+            Checkpoint checkpoint = map.arenaCheckpoints.get(i);
+            if (checkpoint.id() != checkpointId)
+                continue;
+
+            map.arenaCheckpoints.set(i, new Checkpoint(
+                    checkpoint.id(),
+                    checkpoint.spawn(),
+                    checkpoint.locations(),
+                    name
+            ));
+
+            this.message(player, this.configuration.language().commandMessageCheckpointNameSet
+                    .replace("<checkpoint>", String.valueOf(this.displayCheckpointNumber(map, checkpoint.id())))
+                    .replace("<name>", name));
+            return;
+        }
+
+        this.message(player, this.configuration.language().commandMessageCheckpointNotFound
+                .replace("<checkpoint>", String.valueOf(checkpointId))
+                .replace("<map>", this.safe(map.id)));
     }
 
     @Execute(name = "setup checkpoint move")
@@ -931,11 +1018,12 @@ public class CommandDeathRun {
             map.arenaCheckpoints.set(i, new Checkpoint(
                     checkpoint.id(),
                     player.getLocation().toCenterLocation(),
-                    checkpoint.locations()
+                    checkpoint.locations(),
+                    checkpoint.name()
             ));
 
             this.message(player, this.configuration.language().commandMessageCheckpointMoved
-                    .replace("<checkpoint>", String.valueOf(checkpoint.id())));
+                    .replace("<checkpoint>", String.valueOf(this.displayCheckpointNumber(map, checkpoint.id()))));
             return;
         }
 
@@ -1268,6 +1356,11 @@ public class CommandDeathRun {
             @NotNull Player player,
             boolean requireSetupEnabled
     ) {
+        if (!this.setupEditModePlayers.contains(player.getUniqueId())) {
+            this.message(player, this.configuration.language().commandMessageSetupEditModeRequired);
+            return null;
+        }
+
         this.configuration.map().ensureMapsMutable();
         List<MapConfiguration.MapDefinition> maps = this.configuration.map().resolvedMaps();
         if (maps.isEmpty()) {
@@ -1572,7 +1665,8 @@ public class CommandDeathRun {
             .map((checkpoint) -> new Checkpoint(
                 checkpoint.id(),
                 this.withWorld(checkpoint.spawn(), world),
-                checkpoint.locations().stream().map((location) -> this.withWorld(location, world)).toList()
+                checkpoint.locations().stream().map((location) -> this.withWorld(location, world)).toList(),
+                checkpoint.name()
             ))
             .collect(Collectors.toCollection(ArrayList::new));
 
@@ -1614,7 +1708,55 @@ public class CommandDeathRun {
             @NotNull MapConfiguration.MapDefinition map
     ) {
         this.ensureMutableSetupCollections(map);
+        this.normalizeCheckpointIds(map);
         return map;
+    }
+
+    private void normalizeCheckpointIds(
+            @NotNull MapConfiguration.MapDefinition map
+    ) {
+        if (map.arenaCheckpoints.isEmpty()) {
+            map.arenaFinishCheckpointId = null;
+            return;
+        }
+
+        Integer previousFinishId = map.arenaFinishCheckpointId;
+        int finishIndex = -1;
+        if (previousFinishId != null) {
+            for (int i = 0; i < map.arenaCheckpoints.size(); i++) {
+                if (map.arenaCheckpoints.get(i).id().equals(previousFinishId)) {
+                    finishIndex = i;
+                    break;
+                }
+            }
+        }
+
+        List<Checkpoint> reindexed = new ArrayList<>();
+        for (int i = 0; i < map.arenaCheckpoints.size(); i++) {
+            Checkpoint checkpoint = map.arenaCheckpoints.get(i);
+            reindexed.add(new Checkpoint(
+                    i + 1,
+                    checkpoint.spawn(),
+                    checkpoint.locations(),
+                    checkpoint.name()
+            ));
+        }
+
+        map.arenaCheckpoints = reindexed;
+        if (finishIndex >= 0 && finishIndex < map.arenaCheckpoints.size())
+            map.arenaFinishCheckpointId = map.arenaCheckpoints.get(finishIndex).id();
+    }
+
+    private int displayCheckpointNumber(
+            @NotNull MapConfiguration.MapDefinition map,
+            int checkpointId
+    ) {
+        for (int i = 0; i < map.arenaCheckpoints.size(); i++) {
+            if (map.arenaCheckpoints.get(i).id() == checkpointId)
+                return i + 1;
+        }
+
+        return checkpointId;
     }
 
 }

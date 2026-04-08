@@ -15,6 +15,7 @@ import pl.mrstudios.deathrun.arena.ArenaManager;
 
 import static org.bukkit.event.EventPriority.MONITOR;
 import static org.bukkit.event.inventory.InventoryType.PLAYER;
+import static pl.mrstudios.deathrun.api.arena.enums.GameState.PLAYING;
 
 public class ArenaInventoryActionListener implements Listener {
 
@@ -66,12 +67,15 @@ public class ArenaInventoryActionListener implements Listener {
         if (this.hasInventoryBypass(event.getPlayer()))
             return;
 
+        var runtime = this.arenaManager.runtimeForPlayer(event.getPlayer());
+        if (runtime == null || runtime.arena().getGameState() != PLAYING)
+            return;
+
         event.setCancelled(true);
 
-        if (this.arenaManager.runtimeForPlayer(event.getPlayer()) != null)
-            this.plugin.getLogger().info("[DR-DBG] Prevented item drop for "
-                + event.getPlayer().getName()
-                + " item=" + event.getItemDrop().getItemStack().getType());
+        this.plugin.getLogger().info("[DR-DBG] Prevented item drop for "
+            + event.getPlayer().getName()
+            + " item=" + event.getItemDrop().getItemStack().getType());
     }
 
     @EventHandler(priority = MONITOR)

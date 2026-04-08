@@ -22,6 +22,7 @@ import pl.mrstudios.deathrun.config.Configuration;
 import pl.mrstudios.deathrun.plugin.Entrypoint;
 
 import java.awt.image.BufferedImage;
+import java.util.List;
 
 import static java.time.Duration.ofMillis;
 import static java.time.Duration.ofSeconds;
@@ -153,7 +154,7 @@ public class ArenaPlayerDamageListener implements Listener {
     ) {
 
         user.setDeaths(user.getDeaths() + 1);
-        player.teleport(user.getCheckpoint().spawn());
+        player.teleport(this.respawnLocation(user.getCheckpoint()));
         player.playSound(player.getLocation(), this.configuration.plugin().arenaSoundPlayerDeath, 1.0f, 1.0f);
         player.addPotionEffect(FIRE_RESISTANCE_EFFECT);
         player.setFireTicks(0);
@@ -179,5 +180,29 @@ public class ArenaPlayerDamageListener implements Listener {
     }
 
     protected static final PotionEffect FIRE_RESISTANCE_EFFECT = new PotionEffect(FIRE_RESISTANCE, 20, 1, false, false, false);
+
+    private @NotNull org.bukkit.Location respawnLocation(
+            @NotNull pl.mrstudios.deathrun.api.arena.checkpoint.ICheckpoint checkpoint
+    ) {
+        List<org.bukkit.Location> area = checkpoint.locations();
+        if (area.isEmpty() || area.get(0).getWorld() == null)
+            return checkpoint.spawn();
+
+        int minX = area.stream().mapToInt(org.bukkit.Location::getBlockX).min().orElse(checkpoint.spawn().getBlockX());
+        int maxX = area.stream().mapToInt(org.bukkit.Location::getBlockX).max().orElse(checkpoint.spawn().getBlockX());
+        int minY = area.stream().mapToInt(org.bukkit.Location::getBlockY).min().orElse(checkpoint.spawn().getBlockY());
+        int maxY = area.stream().mapToInt(org.bukkit.Location::getBlockY).max().orElse(checkpoint.spawn().getBlockY());
+        int minZ = area.stream().mapToInt(org.bukkit.Location::getBlockZ).min().orElse(checkpoint.spawn().getBlockZ());
+        int maxZ = area.stream().mapToInt(org.bukkit.Location::getBlockZ).max().orElse(checkpoint.spawn().getBlockZ());
+
+        double centerX = (minX + maxX) / 2.0 + 0.5;
+        double centerY = Math.max(minY + 1, maxY + 1);
+        double centerZ = (minZ + maxZ) / 2.0 + 0.5;
+
+        org.bukkit.Location safe = new org.bukkit.Location(area.get(0).getWorld(), centerX, centerY, centerZ);
+        safe.setYaw(checkpoint.spawn().getYaw());
+        safe.setPitch(checkpoint.spawn().getPitch());
+        return safe;
+    }
 
 }

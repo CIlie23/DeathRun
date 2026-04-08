@@ -20,6 +20,7 @@ public class CheckpointSerializer implements ObjectSerializer<ICheckpoint> {
         data.add("id", object.id());
         data.add("spawn", object.spawn());
         data.addCollection("locations", object.locations(), Location.class);
+        data.add("name", object instanceof Checkpoint checkpoint ? checkpoint.name() : "");
     }
 
     @Override
@@ -30,7 +31,8 @@ public class CheckpointSerializer implements ObjectSerializer<ICheckpoint> {
         return new Checkpoint(
                 data.get("id", Integer.class),
                 data.get("spawn", Location.class),
-                data.getAsList("locations", Location.class)
+            data.getAsList("locations", Location.class),
+            data.containsKey("name") ? data.get("name", String.class) : ""
         );
     }
 
