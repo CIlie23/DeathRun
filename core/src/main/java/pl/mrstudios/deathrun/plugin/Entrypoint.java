@@ -6,7 +6,6 @@ import dev.rollczi.litecommands.annotations.command.Command;
 import dev.rollczi.litecommands.argument.ArgumentKey;
 import dev.rollczi.litecommands.suggestion.SuggestionResult;
 import net.kyori.adventure.platform.bukkit.BukkitAudiences;
-import net.lingala.zip4j.ZipFile;
 import org.bukkit.Server;
 import org.bukkit.command.CommandSender;
 import org.bukkit.event.Listener;
@@ -53,12 +52,8 @@ import static com.sk89q.worldedit.WorldEdit.getInstance;
 import static dev.rollczi.litecommands.annotations.LiteCommandsAnnotations.of;
 import static dev.rollczi.litecommands.bukkit.LiteCommandsBukkit.builder;
 import static dev.rollczi.litecommands.schematic.SchematicFormat.angleBrackets;
-import static java.lang.String.format;
-import static java.nio.file.Paths.get;
 import static java.util.Arrays.asList;
-import static java.util.Arrays.stream;
 import static net.kyori.adventure.platform.bukkit.BukkitAudiences.create;
-import static org.apache.commons.io.FileUtils.deleteDirectory;
 import static pl.mrstudios.deathrun.api.API.apiInstance;
 import static pl.mrstudios.deathrun.api.API.createInstance;
 
@@ -143,6 +138,7 @@ public class Entrypoint extends JavaPlugin {
                 .register(Configuration.class, this.configuration);
 
             this.arenaManager.initialize();
+        this.arenaManager.saveLoadedMapWorlds();
 
         /* Register Traps */
         asList(
@@ -260,6 +256,9 @@ public class Entrypoint extends JavaPlugin {
     @Override
     public void onDisable() {
 
+        if (this.arenaManager != null)
+            this.arenaManager.saveLoadedMapWorlds();
+
         if (this.signManager != null)
             this.signManager.shutdown();
 
@@ -273,29 +272,9 @@ public class Entrypoint extends JavaPlugin {
 
     @Override
     public void onLoad() {
-
-        try {
-
-            stream(new File(this.getDataFolder(), "backup").listFiles())
-                    .filter((file) -> file.getName().endsWith(".zip"))
-                    .forEach((file) -> {
-
-                        try {
-
-                            deleteDirectory(get(file.getName().replace(".zip", "")).toFile());
-
-                            try (ZipFile zipFile = new ZipFile(file)) {
-                                zipFile.extractAll(get("./").toString());
-                            }
-
-                        } catch (@NotNull Exception exception) {
-                            this.getLogger().severe(format("An error occurred while restoring %s world backup.", file.getName().replace(".zip", "")));
-                        }
-
-                    });
-
-        } catch (@NotNull Exception ignored) {}
-
+        // Intentionally no-op.
+        // Backups are restored manually via setup commands, not automatically on startup,
+        // so regular world changes persist across restarts.
     }
 
     public @Nullable BufferedImage getWinParchmentImage() {

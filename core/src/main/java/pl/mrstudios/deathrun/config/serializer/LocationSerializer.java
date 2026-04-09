@@ -8,8 +8,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.jetbrains.annotations.NotNull;
-
-import java.util.UUID;
+import pl.mrstudios.deathrun.util.LocationResolveUtil;
 
 public class LocationSerializer implements ObjectSerializer<Location> {
 
@@ -57,37 +56,17 @@ public class LocationSerializer implements ObjectSerializer<Location> {
     private World resolveWorld(
             @NotNull DeserializationData data
     ) {
-        if (data.containsKey("world")) {
-            String worldName = data.get("world", String.class);
-            if (worldName != null && !worldName.isBlank()) {
-                World byName = Bukkit.getWorld(worldName);
-                if (byName != null)
-                    return byName;
-            }
+        String worldName = data.containsKey("world") ? data.get("world", String.class) : null;
+        String worldUuid = data.containsKey("worldUuid") ? data.get("worldUuid", String.class) : null;
+        String legacyWorldName = data.containsKey("world-name") ? data.get("world-name", String.class) : null;
+
+        World resolved = LocationResolveUtil.resolveWorld(worldName, worldUuid, legacyWorldName);
+        if (resolved == null && (worldName != null || worldUuid != null || legacyWorldName != null)) {
+            Bukkit.getLogger().warning("[DeathRun] Location deserialized with unresolved world reference: "
+                    + LocationResolveUtil.summarizeWorldReference(worldName, worldUuid, legacyWorldName)
+                    + ". The location will remain world-null until runtime rebinding.");
         }
 
-        if (data.containsKey("worldUuid")) {
-            String worldUuid = data.get("worldUuid", String.class);
-            if (worldUuid != null && !worldUuid.isBlank()) {
-                try {
-                    World byUuid = Bukkit.getWorld(UUID.fromString(worldUuid));
-                    if (byUuid != null)
-                        return byUuid;
-                } catch (IllegalArgumentException ignored) {
-                }
-            }
-        }
-
-        // Legacy fallback for older serializer field naming.
-        if (data.containsKey("world-name")) {
-            String legacyWorldName = data.get("world-name", String.class);
-            if (legacyWorldName != null && !legacyWorldName.isBlank()) {
-                World legacyWorld = Bukkit.getWorld(legacyWorldName);
-                if (legacyWorld != null)
-                    return legacyWorld;
-            }
-        }
-
-        return null;
+        return resolved;
     }
 }

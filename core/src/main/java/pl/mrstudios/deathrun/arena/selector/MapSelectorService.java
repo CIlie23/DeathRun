@@ -98,6 +98,7 @@ public class MapSelectorService {
             case MAP_NOT_READY -> this.audiences.player(player).sendMessage(miniMessage().deserialize(this.configuration.language().mapSelectorMapNotReady));
             case MAP_FULL -> this.audiences.player(player).sendMessage(miniMessage().deserialize(this.configuration.language().mapSelectorMapFull));
             case MATCH_IN_PROGRESS -> this.audiences.player(player).sendMessage(miniMessage().deserialize(this.configuration.language().mapSelectorMapInProgress));
+            case MAP_EDITING -> this.audiences.player(player).sendMessage(miniMessage().deserialize(this.configuration.language().mapSelectorMapEditing));
             default -> this.audiences.player(player).sendMessage(miniMessage().deserialize(this.configuration.language().mapSelectorMapUnavailable));
         }
 
@@ -166,6 +167,9 @@ public class MapSelectorService {
         if (!this.arenaManager.isMapConfigured(map))
             return this.configuration.language().mapSelectorStatusNotReady;
 
+        if (map.id != null && this.arenaManager.isMapLockedForEditing(map.id))
+            return this.configuration.language().mapSelectorStatusEditing;
+
         ArenaManager.ArenaRuntime runtime = map.id == null ? null : this.arenaManager.runtimeByMapId(map.id);
         if (runtime != null && (runtime.arena().getGameState() == GameState.PLAYING || runtime.arena().getGameState() == GameState.ENDING))
             return this.configuration.language().mapSelectorStatusInProgress;
@@ -181,6 +185,9 @@ public class MapSelectorService {
 
         if (map.arenaWaitingLobbyLocation == null || !this.arenaManager.isMapConfigured(map))
             return Material.YELLOW_CONCRETE;
+
+        if (map.id != null && this.arenaManager.isMapLockedForEditing(map.id))
+            return Material.ORANGE_CONCRETE;
 
         ArenaManager.ArenaRuntime runtime = map.id == null ? null : this.arenaManager.runtimeByMapId(map.id);
         if (runtime != null && (runtime.arena().getGameState() == GameState.PLAYING || runtime.arena().getGameState() == GameState.ENDING))

@@ -65,6 +65,8 @@ public class ArenaButtonClickListener implements Listener {
         if (arena == null || map == null)
             return;
 
+                this.arenaManager.ensureMapWorldBindings(map);
+
         ofNullable(arena.getUser(event.getPlayer()))
                 .filter((user) -> user.getRole() == DEATH)
                 .flatMap((user) -> map.arenaTraps.stream()

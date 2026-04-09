@@ -17,6 +17,8 @@ public class TrapArrows extends Trap {
 
     @Override
     public void start() {
+        if (this.abortIfAnyNullWorldLocation("start"))
+            return;
 
         super.locations.stream()
                 .map(Location::getBlock)
@@ -49,6 +51,7 @@ public class TrapArrows extends Trap {
             @Nullable Object... objects
     ) {
         return list.stream()
+            .filter((location) -> location != null && location.getWorld() != null)
                 .filter((location) -> location.getBlock().getType() == DISPENSER)
                 .toList();
     }

@@ -53,17 +53,24 @@ public class ArenaSignInteractListener implements Listener {
         switch (queueSign.type()) {
 
             case JOIN -> {
+                if (queueSign.mapId() != null && this.arenaManager.isMapLockedForEditing(queueSign.mapId())) {
+                    event.getPlayer().sendMessage(ChatColor.RED + "This map is currently unavailable as it is being edited.");
+                    return;
+                }
+
                 if (queueSign.mapId() == null || !this.signManager.queuePlayerToMap(event.getPlayer(), queueSign.mapId())) {
                     event.getPlayer().sendMessage(ChatColor.RED + "This map is currently not joinable.");
                     return;
                 }
 
                 int queued = this.signManager.queuedPlayersCount(queueSign.mapId());
-                int required = this.arenaManager.runtimeByMapId(queueSign.mapId()) == null
+                ArenaManager.ArenaRuntime runtime = this.arenaManager.runtimeByMapId(queueSign.mapId());
+                int ready = runtime == null ? queued : (runtime.arena().getUsers().size() + queued);
+                int required = runtime == null
                         ? 0
-                        : this.arenaManager.runtimeByMapId(queueSign.mapId()).service().requiredPlayersToStartForDisplay();
+                    : runtime.service().requiredPlayersToStartForDisplay();
                 event.getPlayer().sendMessage(ChatColor.GREEN + "Joined queue for map " + queueSign.mapId() + ". "
-                        + ChatColor.GRAY + "(" + queued + "/" + required + " ready)");
+                    + ChatColor.GRAY + "(" + ready + "/" + required + " ready)");
             }
 
             case AUTOJOIN -> {

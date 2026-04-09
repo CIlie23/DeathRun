@@ -95,6 +95,7 @@ public class LanguageConfiguration extends OkaeriConfig {
             "<reset> <b>*</b> <white>/deathrun setup checkpoint delete <id>",
             "<reset> <b>*</b> <white>/deathrun setup setmainhub",
             "<reset> <b>*</b> <white>/deathrun setup addteleport",
+            "<reset> <b>*</b> <white>/deathrun setup cancel",
             "<reset> <b>*</b> <white>/deathrun setup save",
             "<reset>"
     );
@@ -127,6 +128,7 @@ public class LanguageConfiguration extends OkaeriConfig {
                 public String commandMessageStopSuccess = "<dark_green><b>*</b> <green>Map <dark_green><map> <green>has been stopped and reset to waiting.";
                 public String commandMessageStopMapUnavailable = "<dark_red><b>*</b> <red>Map <dark_red><map> <red>is not available.";
                 public String commandMessageStopAlreadyWaiting = "<gold><b>*</b> <yellow>Map <gold><map> <yellow>is already in waiting state.";
+                public String commandMessageStopMovedToHub = "<dark_red><b>*</b> <red>The match has been stopped by an administrator.";
                 public String commandMessageStopNoCurrentMap = "<dark_red><b>*</b> <red>You are not queued in any map. Use <white>/deathrun stop <map><red>.";
                 public String commandMessageReloadSuccess = "<dark_green><b>*</b> <green>DeathRun configuration and runtimes reloaded.";
                 public String commandMessageReloadFailed = "<dark_red><b>*</b> <red>Reload failed: <dark_red><reason>";
@@ -170,6 +172,7 @@ public class LanguageConfiguration extends OkaeriConfig {
         public String commandMessageSetupEditModeAlreadyActive = "<reset> <gold><b>*</b> <yellow>You are already in edit mode. Please finish editing your current map first.";
         public String commandMessageSetupEditModeEntered = "<reset> <dark_green><b>*</b> <green>Edit mode enabled for map <dark_green><map><green>.";
         public String commandMessageSetupEditModeSaved = "<reset> <dark_green><b>*</b> <green>Editing complete; all changes have been saved.";
+        public String commandMessageSetupEditModeCancelled = "<reset> <gold><b>*</b> <yellow>Edit mode cancelled for map <gold><map><yellow>.";
         public String commandMessageSetupMapListLine = "<reset> <gray>- <white><id> <dark_gray>| <white><name> <dark_gray>| <white><world> <dark_gray>| <white><state>";
         public String commandMessageSetupMapListEmpty = "<reset> <dark_red><b>*</b> <red>No setup maps available.";
         public String commandMessageSetupMapDeleteLastBlocked = "<reset> <dark_red><b>*</b> <red>You cannot delete the last map.";
@@ -188,9 +191,11 @@ public class LanguageConfiguration extends OkaeriConfig {
     public String mapSelectorStatusDisabled = "<red>Disabled";
     public String mapSelectorStatusMissingLobby = "<gold>Missing lobby";
         public String mapSelectorStatusNotReady = "<gold>Not ready";
+                public String mapSelectorStatusEditing = "<gold>Being edited";
         public String mapSelectorStatusInProgress = "<red>In progress";
         public String mapSelectorMapSelected = "<dark_green><b>*</b> <green>Joined map <dark_green><map><green>.";
     public String mapSelectorMapUnavailable = "<dark_red><b>*</b> <red>This map is not available yet.";
+                public String mapSelectorMapEditing = "<dark_red><b>*</b> <red>This map is currently unavailable as it is being edited.";
         public String mapSelectorMapNotReady = "<dark_red><b>*</b> <red>This map is not fully configured yet.";
         public String mapSelectorMapFull = "<dark_red><b>*</b> <red>This map is full right now.";
         public String mapSelectorMapInProgress = "<dark_red><b>*</b> <red>This match is already in progress.";

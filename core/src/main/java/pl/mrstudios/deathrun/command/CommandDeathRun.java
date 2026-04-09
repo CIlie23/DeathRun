@@ -9,6 +9,9 @@ import dev.rollczi.litecommands.annotations.context.Context;
 import dev.rollczi.litecommands.annotations.execute.Execute;
 import dev.rollczi.litecommands.annotations.permission.Permission;
 import net.kyori.adventure.platform.bukkit.BukkitAudiences;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.format.NamedTextColor;
 import net.lingala.zip4j.ZipFile;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -47,10 +50,11 @@ import static com.sk89q.worldedit.bukkit.BukkitAdapter.adapt;
 import static java.lang.String.join;
 import static java.util.Objects.requireNonNull;
 import static java.nio.file.Files.createDirectories;
-import static java.nio.file.Files.createFile;
 import static java.nio.file.Files.deleteIfExists;
 import static java.nio.file.Files.exists;
 import static java.nio.file.Paths.get;
+import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.util.Collections.emptyList;
 import static java.util.Optional.ofNullable;
 import static java.util.stream.Stream.of;
@@ -82,6 +86,8 @@ public class CommandDeathRun {
     private final Configuration configuration;
     private final Map<UUID, String> setupMapSelection = new HashMap<>();
     private final Set<UUID> setupEditModePlayers = new HashSet<>();
+    private final Map<UUID, Integer> checkpointListTokens = new HashMap<>();
+    private final Map<UUID, Integer> trapListTokens = new HashMap<>();
 
     @Inject
     public CommandDeathRun(
@@ -293,6 +299,12 @@ public class CommandDeathRun {
             return;
         }
 
+        String normalizedMapId = this.configuration.map().normalizedMapId(map.id);
+        if (this.arenaManager.isMapLockedForEditing(normalizedMapId)) {
+            this.message(player, this.configuration.language().mapSelectorMapEditing);
+            return;
+        }
+
         this.arenaManager.ensureMapWorldBindings(map);
 
         Location target = this.arenaManager.resolveMapLocation(this.setupTeleportTarget(player, map), map);
@@ -303,8 +315,9 @@ public class CommandDeathRun {
             return;
         }
 
-        this.setupMapSelection.put(player.getUniqueId(), this.configuration.map().normalizedMapId(map.id));
+        this.setupMapSelection.put(player.getUniqueId(), normalizedMapId);
         this.setupEditModePlayers.add(player.getUniqueId());
+        this.arenaManager.setMapEditLocked(normalizedMapId, true);
 
         if (target != null)
             player.teleport(target);
@@ -710,6 +723,8 @@ public class CommandDeathRun {
             new Checkpoint(checkpointId, player.getLocation().toCenterLocation(), selectedLocations, "")
         );
 
+        this.configuration.map().save();
+
         this.message(player, this.configuration.language().commandMessageCheckpointAdded
             .replace("<checkpoint>", String.valueOf(checkpointId))
             .replace("<map>", this.safe(map.id)));
@@ -733,19 +748,44 @@ public class CommandDeathRun {
         }
 
         String normalizedMapId = this.configuration.map().normalizedMapId(map.id);
+        int token = this.nextCheckpointListToken(player);
         this.message(player, PREFIX + "<gray>Checkpoints for <white>" + this.safe(map.id) + "<gray>:");
         for (int i = 0; i < map.arenaCheckpoints.size(); i++) {
             Checkpoint checkpoint = map.arenaCheckpoints.get(i);
-                    Location spawn = checkpoint.spawn();
-                String displayName = (checkpoint.name() == null || checkpoint.name().isBlank())
+            Location spawn = checkpoint.spawn();
+            String displayName = (checkpoint.name() == null || checkpoint.name().isBlank())
                     ? "#" + checkpoint.id()
                     : checkpoint.name();
 
-                    String line = "<gray>[<white>" + (i + 1) + "<gray>] <white>" + displayName
-                            + " <dark_gray>- <gray>" + spawn.getBlockX() + ", " + spawn.getBlockY() + ", " + spawn.getBlockZ()
-                            + " <dark_gray>| <click:run_command:'/deathrun setup checkpoint tp " + normalizedMapId + " " + checkpoint.id() + "'><green>[Teleport]</green></click>";
-                    this.message(player, line);
-            }
+            Component line = Component.text("[", NamedTextColor.GRAY)
+                .append(Component.text(i + 1, NamedTextColor.WHITE))
+                .append(Component.text("] ", NamedTextColor.GRAY))
+                .append(Component.text(displayName, NamedTextColor.WHITE))
+                .append(Component.text(" - ", NamedTextColor.DARK_GRAY))
+                .append(Component.text(spawn.getBlockX() + ", " + spawn.getBlockY() + ", " + spawn.getBlockZ(), NamedTextColor.GRAY))
+                .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
+                .append(Component.text("[Teleport]", NamedTextColor.GREEN)
+                    .clickEvent(ClickEvent.runCommand("/deathrun setup checkpoint tpclick " + token + " " + checkpoint.id())))
+                .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
+                .append(Component.text("[Delete]", NamedTextColor.RED)
+                    .clickEvent(ClickEvent.runCommand("/deathrun setup checkpoint delclick " + token + " " + checkpoint.id())));
+            this.message(player, line);
+        }
+    }
+
+    @Execute(name = "setup checkpoint tpclick")
+    @Permission("mrstudios.command.deathrun.setup")
+    public void setupCheckpointTeleportClick(
+            @Context Player player,
+            @Arg("token") int token,
+            @Arg("id") int checkpointId
+    ) {
+        if (!this.isCheckpointListTokenValid(player, token)) {
+            this.message(player, PREFIX + "<yellow>This entry no longer exists. Please run the list command again.");
+            return;
+        }
+
+        this.setupCheckpointTeleport(player, checkpointId);
     }
 
     @Execute(name = "setup checkpoint tp")
@@ -854,9 +894,27 @@ public class CommandDeathRun {
         this.normalizeCheckpointIds(map);
         if (map.arenaFinishCheckpointId != null && map.arenaFinishCheckpointId == removed.id())
             map.arenaFinishCheckpointId = null;
+        this.configuration.map().save();
         this.message(player, this.configuration.language().commandMessageCheckpointDeleted
             .replace("<checkpoint>", String.valueOf(this.displayCheckpointNumber(map, removed.id())))
                 .replace("<map>", this.safe(map.id)));
+
+        this.setupCheckpointList(player);
+    }
+
+    @Execute(name = "setup checkpoint delclick")
+    @Permission("mrstudios.command.deathrun.setup")
+    public void setupCheckpointDeleteClick(
+            @Context Player player,
+            @Arg("token") int token,
+            @Arg("id") int checkpointId
+    ) {
+        if (!this.isCheckpointListTokenValid(player, token)) {
+            this.message(player, PREFIX + "<yellow>This entry no longer exists. Please run the list command again.");
+            return;
+        }
+
+        this.setupCheckpointDelete(player, checkpointId);
     }
 
     @Execute(name = "setup checkpoint setorder")
@@ -903,6 +961,7 @@ public class CommandDeathRun {
         reordered.add(targetIndex, checkpoint);
         map.arenaCheckpoints = reordered;
         this.normalizeCheckpointIds(map);
+        this.configuration.map().save();
 
         this.message(player, this.configuration.language().commandMessageCheckpointOrderUpdated
             .replace("<checkpoint>", String.valueOf(this.displayCheckpointNumber(map, checkpoint.id())))
@@ -945,6 +1004,7 @@ public class CommandDeathRun {
         map.arenaCheckpoints = reordered;
         this.normalizeCheckpointIds(map);
         map.arenaFinishCheckpointId = map.arenaCheckpoints.get(map.arenaCheckpoints.size() - 1).id();
+        this.configuration.map().save();
 
         this.message(player, this.configuration.language().commandMessageCheckpointFinishSet
             .replace("<checkpoint>", String.valueOf(this.displayCheckpointNumber(map, map.arenaFinishCheckpointId))));
@@ -983,6 +1043,7 @@ public class CommandDeathRun {
                 checkpoint.locations(),
                 name
         ));
+        this.configuration.map().save();
 
         this.message(player, this.configuration.language().commandMessageCheckpointNameSet
             .replace("<checkpoint>", String.valueOf(this.displayCheckpointNumber(map, checkpoint.id())))
@@ -1013,6 +1074,7 @@ public class CommandDeathRun {
                     checkpoint.locations(),
                     name
             ));
+                this.configuration.map().save();
 
             this.message(player, this.configuration.language().commandMessageCheckpointNameSet
                     .replace("<checkpoint>", String.valueOf(this.displayCheckpointNumber(map, checkpoint.id())))
@@ -1046,6 +1108,7 @@ public class CommandDeathRun {
                     checkpoint.locations(),
                     checkpoint.name()
             ));
+                this.configuration.map().save();
 
             this.message(player, this.configuration.language().commandMessageCheckpointMoved
                     .replace("<checkpoint>", String.valueOf(this.displayCheckpointNumber(map, checkpoint.id()))));
@@ -1130,6 +1193,137 @@ public class CommandDeathRun {
         this.trap(player, type, particle, count, offset);
     }
 
+    @Execute(name = "setup trap list")
+    @Permission("mrstudios.command.deathrun.setup")
+    public void setupTrapList(
+            @Context Player player
+    ) {
+        MapConfiguration.MapDefinition map = this.selectedMapForSetup(player, false);
+        if (map == null)
+            return;
+
+        if (map.arenaTraps.isEmpty()) {
+            this.message(player, PREFIX + "<gray>No traps set for map <white>" + this.safe(map.id) + "<gray>.");
+            return;
+        }
+
+        this.message(player, PREFIX + "<gray>Traps for <white>" + this.safe(map.id) + "<gray>:");
+        int token = this.nextTrapListToken(player);
+        for (int i = 0; i < map.arenaTraps.size(); i++) {
+            ITrap trap = map.arenaTraps.get(i);
+            Location button = this.arenaManager.resolveMapLocation(trap.getButton(), map);
+            String trapName = trap.getClass().getSimpleName().replace("Trap", "");
+            long durationSeconds = trap.getDuration().toSeconds();
+
+            String coordinates = (button != null && button.getWorld() != null)
+                    ? button.getBlockX() + ", " + button.getBlockY() + ", " + button.getBlockZ()
+                    : "unknown";
+
+                Component line = Component.text("[", NamedTextColor.GRAY)
+                    .append(Component.text(i + 1, NamedTextColor.WHITE))
+                    .append(Component.text("] ", NamedTextColor.GRAY))
+                    .append(Component.text(trapName, NamedTextColor.WHITE))
+                    .append(Component.text(" - button ", NamedTextColor.DARK_GRAY))
+                    .append(Component.text(coordinates, NamedTextColor.GRAY))
+                    .append(Component.text(" | targets ", NamedTextColor.DARK_GRAY))
+                    .append(Component.text(trap.getLocations().size(), NamedTextColor.WHITE))
+                    .append(Component.text(" | duration ", NamedTextColor.DARK_GRAY))
+                    .append(Component.text(durationSeconds + "s", NamedTextColor.WHITE))
+                    .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
+                    .append(Component.text("[Teleport]", NamedTextColor.GREEN)
+                        .clickEvent(ClickEvent.runCommand("/deathrun setup trap tpclick " + token + " " + (i + 1))))
+                    .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
+                    .append(Component.text("[Delete]", NamedTextColor.RED)
+                        .clickEvent(ClickEvent.runCommand("/deathrun setup trap delclick " + token + " " + (i + 1))));
+                this.message(player, line);
+        }
+    }
+
+    @Execute(name = "setup trap tpclick")
+    @Permission("mrstudios.command.deathrun.setup")
+    public void setupTrapTeleportClick(
+            @Context Player player,
+            @Arg("token") int token,
+            @Arg("index") int index
+    ) {
+        if (!this.isTrapListTokenValid(player, token)) {
+            this.message(player, PREFIX + "<yellow>This entry no longer exists. Please run the list command again.");
+            return;
+        }
+
+        this.setupTrapTeleport(player, index);
+    }
+
+    @Execute(name = "setup trap tp")
+    @Permission("mrstudios.command.deathrun.setup")
+    public void setupTrapTeleport(
+            @Context Player player,
+            @Arg("index") int index
+    ) {
+        MapConfiguration.MapDefinition map = this.selectedMapForSetup(player, false);
+        if (map == null)
+            return;
+
+        if (index <= 0 || index > map.arenaTraps.size()) {
+            this.message(player, PREFIX + "<red>Trap <white>#" + index + "<red> was not found on map <white>" + this.safe(map.id) + "<red>.");
+            return;
+        }
+
+        ITrap trap = map.arenaTraps.get(index - 1);
+        Location button = this.arenaManager.resolveMapLocation(trap.getButton(), map);
+        if (button == null || button.getWorld() == null) {
+            this.message(player, this.configuration.language().commandMessageSetupMapWorldUnavailable
+                    .replace("<map>", this.safe(map.id))
+                    .replace("<world>", this.safe(map.world)));
+            return;
+        }
+
+        player.teleport(button.toCenterLocation());
+        this.message(player, PREFIX + "<gray>Teleported to trap <white>#" + index + "<gray> at <white>"
+                + button.getBlockX() + ", " + button.getBlockY() + ", " + button.getBlockZ());
+    }
+
+    @Execute(name = "setup trap delete")
+    @Permission("mrstudios.command.deathrun.setup")
+    public void setupTrapDelete(
+            @Context Player player,
+            @Arg("index") int index
+    ) {
+        MapConfiguration.MapDefinition map = this.selectedMapForSetup(player, true);
+        if (map == null)
+            return;
+
+        this.ensureMutableSetupCollections(map);
+
+        if (index <= 0 || index > map.arenaTraps.size()) {
+            this.message(player, PREFIX + "<red>Trap <white>#" + index + "<red> was not found on map <white>" + this.safe(map.id) + "<red>.");
+            return;
+        }
+
+        ITrap removed = map.arenaTraps.remove(index - 1);
+        this.configuration.map().save();
+
+        String trapName = removed.getClass().getSimpleName().replace("Trap", "");
+        this.message(player, PREFIX + "<green>Deleted trap <white>#" + index + " <green>(" + trapName + ") from map <white>" + this.safe(map.id) + "<green>.");
+
+        this.setupTrapList(player);
+    }
+
+    @Execute(name = "setup trap delclick")
+    @Permission("mrstudios.command.deathrun.setup")
+    public void setupTrapDeleteClick(
+            @Context Player player,
+            @Arg("token") int token,
+            @Arg("index") int index
+    ) {
+        if (!this.isTrapListTokenValid(player, token)) {
+            this.message(player, PREFIX + "<yellow>This entry no longer exists. Please run the list command again.");
+            return;
+        }
+
+        this.setupTrapDelete(player, index);
+    }
+
     @Execute(name = "setup create")
     @Permission("mrstudios.command.deathrun.setup")
     public void setupCreate(
@@ -1192,6 +1386,7 @@ public class CommandDeathRun {
         map.arenaStartBarrierRestoreMaterials = locations.stream()
             .map((location) -> location.getBlock().getType())
             .toList();
+        this.configuration.map().save();
         this.message(player, this.configuration.language().commandMessageStartBarrierSet);
 
     }
@@ -1208,6 +1403,7 @@ public class CommandDeathRun {
 
         map.world = player.getWorld().getName();
         map.arenaWaitingLobbyLocation = player.getLocation().toCenterLocation();
+        this.configuration.map().save();
         this.message(player, this.configuration.language().commandMessageWaitingLobbySet);
 
     }
@@ -1239,6 +1435,7 @@ public class CommandDeathRun {
         }
 
         map.teleportPads.add(new TeleportPad(locations.get(0), player.getLocation().toCenterLocation().add(0, -0.5, 0)));
+        this.configuration.map().save();
         this.message(player, this.configuration.language().commandMessageTeleportPadAdded);
 
     }
@@ -1281,13 +1478,34 @@ public class CommandDeathRun {
 
         map.arenaSetupEnabled = false;
         this.configuration.map().save();
+        this.saveMapWorldNow(map.world);
         this.setupEditModePlayers.remove(player.getUniqueId());
+        this.arenaManager.setMapEditLocked(this.configuration.map().normalizedMapId(map.id), false);
         this.arenaManager.returnPlayerToHub(player);
 
         this.message(player, this.configuration.language().commandMessageSetupMapPreflightPassed.replace("<map>", this.safe(map.id)));
         this.message(player, this.configuration.language().commandMessageSaveSuccess);
         this.message(player, this.configuration.language().commandMessageSetupEditModeSaved);
 
+    }
+
+    @Execute(name = "setup cancel")
+    @Permission("mrstudios.command.deathrun.setup")
+    public void cancelSetup(
+            @Context Player player
+    ) {
+        MapConfiguration.MapDefinition map = this.selectedMapForSetup(player, false);
+        if (map == null)
+            return;
+
+        this.setupEditModePlayers.remove(player.getUniqueId());
+        this.saveMapWorldNow(map.world);
+        this.arenaManager.setMapEditLocked(this.configuration.map().normalizedMapId(map.id), false);
+        this.setupMapSelection.remove(player.getUniqueId());
+        this.arenaManager.returnPlayerToHub(player);
+
+        this.message(player, this.configuration.language().commandMessageSetupEditModeCancelled
+                .replace("<map>", this.safe(map.id)));
     }
 
     protected void message(
@@ -1298,6 +1516,13 @@ public class CommandDeathRun {
             ? java.lang.String.format(message, args)
             : message;
         this.audiences.player(player).sendMessage(miniMessage().deserialize(content));
+    }
+
+    protected void message(
+            @NotNull Player player,
+            @NotNull Component component
+    ) {
+        player.sendMessage(component);
     }
 
     private void message(
@@ -1374,6 +1599,7 @@ public class CommandDeathRun {
         ofNullable(objects).ifPresent(trap::setExtra);
 
         map.arenaTraps.add(trap);
+        this.configuration.map().save();
         this.message(player, this.configuration.language().commandMessageTrapAdded.replace("<type>", type.toUpperCase()));
 
     }
@@ -1474,6 +1700,7 @@ public class CommandDeathRun {
             case MAP_NOT_READY -> this.configuration.language().mapSelectorMapNotReady;
             case MAP_FULL -> this.configuration.language().mapSelectorMapFull;
             case MATCH_IN_PROGRESS -> this.configuration.language().mapSelectorMapInProgress;
+            case MAP_EDITING -> this.configuration.language().mapSelectorMapEditing;
             default -> this.configuration.language().mapSelectorMapUnavailable;
         };
 
@@ -1539,18 +1766,64 @@ public class CommandDeathRun {
         return value == null || value.isBlank() ? "-" : value;
     }
 
+    private int nextCheckpointListToken(
+            @NotNull Player player
+    ) {
+        return this.checkpointListTokens.merge(player.getUniqueId(), 1, Integer::sum);
+    }
+
+    private boolean isCheckpointListTokenValid(
+            @NotNull Player player,
+            int token
+    ) {
+        return this.checkpointListTokens.getOrDefault(player.getUniqueId(), -1) == token;
+    }
+
+    private int nextTrapListToken(
+            @NotNull Player player
+    ) {
+        return this.trapListTokens.merge(player.getUniqueId(), 1, Integer::sum);
+    }
+
+    private boolean isTrapListTokenValid(
+            @NotNull Player player,
+            int token
+    ) {
+        return this.trapListTokens.getOrDefault(player.getUniqueId(), -1) == token;
+    }
+
     private void refreshWorldBackup(
             @NotNull String worldName,
             @NotNull World world
     ) throws Exception {
         Path path = get(this.plugin.getDataFolder().toString(), "backup/", worldName + ".zip");
+        Path tempPath = get(this.plugin.getDataFolder().toString(), "backup/", worldName + ".zip.tmp");
         createDirectories(path.getParent());
-        deleteIfExists(path);
-        createFile(path);
+        deleteIfExists(tempPath);
 
-        try (ZipFile zipFile = new ZipFile(path.toString())) {
+        try (ZipFile zipFile = new ZipFile(tempPath.toString())) {
             zipFile.addFolder(world.getWorldFolder());
         }
+
+        try {
+            java.nio.file.Files.move(tempPath, path, REPLACE_EXISTING, ATOMIC_MOVE);
+        } catch (java.nio.file.AtomicMoveNotSupportedException ignored) {
+            java.nio.file.Files.move(tempPath, path, REPLACE_EXISTING);
+        }
+    }
+
+    private void saveMapWorldNow(
+            @Nullable String worldName
+    ) {
+        if (worldName == null || worldName.isBlank())
+            return;
+
+        World world = this.plugin.getServer().getWorld(worldName);
+        if (world == null)
+            return;
+
+        world.setAutoSave(true);
+        world.save();
     }
 
     private boolean rebuildBarrierSnapshot(

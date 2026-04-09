@@ -126,6 +126,11 @@ public class SignManager {
         if (normalizedMapId == null)
             return false;
 
+        if (this.arenaManager.isMapLockedForEditing(normalizedMapId)) {
+            player.sendMessage(ChatColor.RED + "This map is currently unavailable as it is being edited.");
+            return false;
+        }
+
         ArenaManager.ArenaRuntime runtime = this.arenaManager.runtimeByMapId(normalizedMapId);
         if (runtime == null)
             return false;
@@ -207,6 +212,18 @@ public class SignManager {
         return players == null ? 0 : players.size();
     }
 
+    public void clearQueueForMap(
+            @NotNull String mapId
+    ) {
+        String normalizedMapId = this.normalizeMapId(mapId);
+        LinkedHashSet<UUID> players = this.queuedPlayers.remove(normalizedMapId);
+        if (players == null || players.isEmpty())
+            return;
+
+        for (UUID uniqueId : players)
+            this.playerQueue.remove(uniqueId);
+    }
+
     public @NotNull List<Player> drainQueuedPlayers(
             @NotNull String mapId,
             int maxCount
@@ -240,6 +257,7 @@ public class SignManager {
         Collection<ArenaManager.ArenaRuntime> runtimes = this.arenaManager.runtimes();
         return runtimes.stream()
                 .filter((runtime) -> this.arenaManager.isMapConfigured(runtime.map()))
+            .filter((runtime) -> !this.arenaManager.isMapLockedForEditing(runtime.mapId()))
                 .filter((runtime) -> runtime.arena().getGameState() == GameState.WAITING || runtime.arena().getGameState() == GameState.STARTING)
                 .filter((runtime) -> runtime.arena().getUsers().size() + this.queuedPlayersCount(runtime.mapId()) < this.arenaManager.maxPlayers(runtime.map()))
                 .max(Comparator.comparingInt((runtime) -> runtime.arena().getUsers().size() + this.queuedPlayersCount(runtime.mapId())))

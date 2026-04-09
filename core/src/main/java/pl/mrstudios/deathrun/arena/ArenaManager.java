@@ -17,6 +17,7 @@ import pl.mrstudios.deathrun.api.arena.event.arena.ArenaUserJoinedEvent;
 import pl.mrstudios.deathrun.api.arena.event.arena.ArenaUserLeftEvent;
 import pl.mrstudios.deathrun.api.arena.user.IUser;
 import pl.mrstudios.deathrun.arena.user.User;
+import pl.mrstudios.deathrun.arena.pad.TeleportPad;
 import pl.mrstudios.deathrun.arena.sign.SignManager;
 import pl.mrstudios.deathrun.arena.win.WinMapManager;
 import pl.mrstudios.deathrun.config.Configuration;
@@ -48,6 +49,7 @@ public class ArenaManager {
 
     private final Map<String, ArenaRuntime> runtimesByMapId = new LinkedHashMap<>();
     private final Map<UUID, String> playerMapIndex = new HashMap<>();
+    private final Set<String> editLockedMaps = new HashSet<>();
 
     public ArenaManager(
             @NotNull Plugin plugin,
@@ -104,6 +106,49 @@ public class ArenaManager {
             @NotNull String mapId
     ) {
         return this.runtimesByMapId.get(mapId.toLowerCase(Locale.ROOT));
+    }
+
+    public boolean isMapLockedForEditing(
+            @NotNull String mapId
+    ) {
+        return this.editLockedMaps.contains(mapId.toLowerCase(Locale.ROOT));
+    }
+
+    public boolean isMapLockedForEditing(
+            @NotNull MapConfiguration.MapDefinition map
+    ) {
+        return this.isMapLockedForEditing(this.mapId(map));
+    }
+
+    public void setMapEditLocked(
+            @NotNull String mapId,
+            boolean locked
+    ) {
+        String normalizedMapId = mapId.toLowerCase(Locale.ROOT);
+        if (!locked) {
+            this.editLockedMaps.remove(normalizedMapId);
+            return;
+        }
+
+        this.editLockedMaps.add(normalizedMapId);
+
+        if (this.signManager != null)
+            this.signManager.clearQueueForMap(normalizedMapId);
+
+        ArenaRuntime runtime = this.runtimeByMapId(normalizedMapId);
+        if (runtime == null)
+            return;
+
+        List<Player> players = runtime.arena().getUsers().stream()
+                .map(IUser::asBukkit)
+                .filter(Objects::nonNull)
+                .toList();
+
+        for (Player player : players) {
+            this.leaveCurrentMap(player, true);
+            this.returnPlayerToHub(player);
+            this.audiences.player(player).sendMessage(miniMessage().deserialize(this.configuration.language().mapSelectorMapEditing));
+        }
     }
 
     public @Nullable Location resolveMapLocation(
@@ -180,6 +225,9 @@ public class ArenaManager {
         if (runtime == null)
             return JoinResult.MAP_UNAVAILABLE;
 
+        if (this.isMapLockedForEditing(runtime.mapId()))
+            return JoinResult.MAP_EDITING;
+
         if (!this.isMapConfigured(runtime.map()))
             return JoinResult.MAP_NOT_READY;
 
@@ -244,9 +292,29 @@ public class ArenaManager {
         if (runtime == null)
             return ForceStopResult.MAP_UNAVAILABLE;
 
-        return runtime.service().requestStop()
-                ? ForceStopResult.STOPPED
-                : ForceStopResult.ALREADY_WAITING;
+        boolean stopped = runtime.service().requestStop();
+        if (!stopped)
+            return ForceStopResult.ALREADY_WAITING;
+
+        List<Player> activePlayers = runtime.arena().getUsers().stream()
+                .map(IUser::asBukkit)
+                .filter(Objects::nonNull)
+                .toList();
+
+        for (Player player : activePlayers) {
+            this.leaveCurrentMap(player, false);
+            this.returnPlayerToHub(player);
+            this.audiences.player(player).sendMessage(miniMessage().deserialize(this.configuration.language().commandMessageStopMovedToHub));
+        }
+
+        if (this.signManager != null) {
+            for (Player queuedPlayer : this.signManager.drainQueuedPlayers(runtime.mapId(), Integer.MAX_VALUE)) {
+                this.returnPlayerToHub(queuedPlayer);
+                this.audiences.player(queuedPlayer).sendMessage(miniMessage().deserialize(this.configuration.language().commandMessageStopMovedToHub));
+            }
+        }
+
+        return ForceStopResult.STOPPED;
     }
 
     public boolean leaveCurrentMap(
@@ -308,6 +376,9 @@ public class ArenaManager {
         if (runtime == null)
             return 0;
 
+        if (this.isMapLockedForEditing(runtime.mapId()))
+            return 0;
+
         int freeSlots = Math.max(0, this.maxPlayers(runtime.map()) - runtime.arena().getUsers().size());
         if (freeSlots <= 0)
             return 0;
@@ -350,15 +421,72 @@ public class ArenaManager {
         // Map selector compass intentionally disabled; signs are now primary queue flow.
     }
 
-        public void returnPlayerToHub(
-            @NotNull Player player
-        ) {
+    public @Nullable Location resolveHubLocation() {
         Location target = this.configuration.plugin().mainHubLocation;
         if (target == null || target.getWorld() == null) {
             List<World> worlds = this.server.getWorlds();
             if (!worlds.isEmpty())
-            target = worlds.get(0).getSpawnLocation().toCenterLocation();
+                target = worlds.get(0).getSpawnLocation().toCenterLocation();
         }
+
+        return target;
+    }
+
+    public boolean shouldReturnToHubOnJoinOrRespawn(
+            @NotNull Player player
+    ) {
+        ArenaRuntime runtime = this.runtimeForPlayer(player);
+        if (runtime != null) {
+            if (runtime.arena().getUser(player) == null)
+                return true;
+
+            GameState state = runtime.arena().getGameState();
+            return state == ENDING || state == WAITING;
+        }
+
+        World world = player.getWorld();
+        if (world == null)
+            return false;
+
+        String currentWorld = world.getName();
+        return this.runtimesByMapId.values().stream()
+                .map((candidate) -> candidate.map().world)
+                .filter((name) -> name != null && !name.isBlank())
+                .anyMatch((name) -> name.equalsIgnoreCase(currentWorld));
+    }
+
+    public void recoverPlayerToHubIfNeeded(
+            @NotNull Player player,
+            boolean notify
+    ) {
+        if (!this.shouldReturnToHubOnJoinOrRespawn(player))
+            return;
+
+        this.leaveQueue(player);
+        this.leaveCurrentMap(player, false);
+        this.returnPlayerToHub(player);
+        if (notify)
+            this.audiences.player(player).sendMessage(miniMessage().deserialize("<gold>[DR]</gold> <gray>Your previous arena session has ended; you were returned to the hub."));
+    }
+
+    public void saveLoadedMapWorlds() {
+        for (MapConfiguration.MapDefinition map : this.configuration.map().resolvedMaps()) {
+            if (map.world == null || map.world.isBlank())
+                continue;
+
+            World world = this.server.getWorld(map.world);
+            if (world == null)
+                continue;
+
+            world.setAutoSave(true);
+            world.save();
+        }
+    }
+
+        public void returnPlayerToHub(
+            @NotNull Player player
+        ) {
+        Location target = this.resolveHubLocation();
 
         if (target != null && target.getWorld() != null)
             player.teleport(target);
@@ -509,6 +637,20 @@ public class ArenaManager {
                 checkpoint.name()
             ))
             .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
+
+        map.teleportPads = map.teleportPads.stream()
+            .map((pad) -> new TeleportPad(
+                Objects.requireNonNull(this.resolveMapLocation(pad.padLocation(), map), "teleport pad location"),
+                Objects.requireNonNull(this.resolveMapLocation(pad.teleportLocation(), map), "teleport destination location")
+            ))
+            .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
+
+        map.arenaTraps.forEach((trap) -> {
+            trap.setButton(Objects.requireNonNull(this.resolveMapLocation(trap.getButton(), map), "trap button"));
+            trap.setLocations(trap.getLocations().stream()
+                .map((location) -> Objects.requireNonNull(this.resolveMapLocation(location, map), "trap location"))
+                .toList());
+        });
     }
 
     private void resetPlayerScoreboard(
@@ -526,7 +668,8 @@ public class ArenaManager {
         MAP_UNAVAILABLE,
         MAP_NOT_READY,
         MAP_FULL,
-        MATCH_IN_PROGRESS
+        MATCH_IN_PROGRESS,
+        MAP_EDITING
     }
 
     public enum ForceStartResult {

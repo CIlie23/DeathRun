@@ -17,6 +17,9 @@ public class TrapTNT extends Trap {
 
     @Override
     public void start() {
+        if (this.abortIfAnyNullWorldLocation("start"))
+            return;
+
         super.locations.forEach(
                 (location) -> location.getWorld().spawn(location, TNTPrimed.class, (entity) -> {
                     entity.setFuseTicks(5);
@@ -38,6 +41,7 @@ public class TrapTNT extends Trap {
             @Nullable Object... objects
     ) {
         return list.stream()
+            .filter((location) -> location != null && location.getWorld() != null)
                 .filter((location) -> location.getBlock().getType() == TNT)
                 .toList();
     }

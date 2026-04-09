@@ -27,6 +27,9 @@ public class TrapDisappearingBlocks extends Trap {
 
     @Override
     public void start() {
+        if (this.abortIfAnyNullWorldLocation("start"))
+            return;
+
         super.locations.forEach((location) -> {
             this.backup.put(location, location.getBlock().getBlockData());
             location.getBlock().setType(AIR);
@@ -58,6 +61,7 @@ public class TrapDisappearingBlocks extends Trap {
                 .map((array) -> (Material) array[0])
                 .map(
                         (material) -> list.stream()
+                        .filter((location) -> location != null && location.getWorld() != null)
                                 .filter((location) -> location.getBlock().getType() == material)
                                 .toList()
                 ).orElse(list);

@@ -35,6 +35,9 @@ public class TrapParticles extends Trap {
 
     @Override
     public void start() {
+        if (this.abortIfAnyNullWorldLocation("start"))
+            return;
+
         this.bukkitTask = getServer().getScheduler()
                 .runTaskTimer(getPlugin(Entrypoint.class), () -> super.locations.stream().map(Location::toCenterLocation).forEach((location) -> {
 

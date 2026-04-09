@@ -1,6 +1,7 @@
 package pl.mrstudios.deathrun.arena.trap;
 
 import org.bukkit.Location;
+import org.bukkit.Bukkit;
 import org.jetbrains.annotations.NotNull;
 import pl.mrstudios.deathrun.api.arena.trap.ITrap;
 
@@ -33,6 +34,25 @@ public abstract class Trap implements ITrap {
             @NotNull List<Location> locations
     ) {
         this.locations = locations;
+    }
+
+    protected boolean hasAnyNullWorldLocation() {
+        if (this.locations == null || this.locations.isEmpty())
+            return false;
+
+        return this.locations.stream().anyMatch((location) -> location == null || location.getWorld() == null);
+    }
+
+    protected boolean abortIfAnyNullWorldLocation(
+            @NotNull String phase
+    ) {
+        if (!this.hasAnyNullWorldLocation())
+            return false;
+
+        Bukkit.getLogger().severe("[DeathRun] " + this.getClass().getSimpleName() + " aborted during " + phase
+                + ": one or more trap locations have null world references."
+                + " Re-save map setup or ensure map world is loaded.");
+        return true;
     }
 
 }

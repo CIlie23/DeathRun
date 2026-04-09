@@ -47,6 +47,7 @@ import static net.kyori.adventure.text.minimessage.MiniMessage.miniMessage;
 import static net.kyori.adventure.title.Title.Times.times;
 import static net.kyori.adventure.title.Title.title;
 import static org.bukkit.Material.AIR;
+import static org.bukkit.Material.RED_BED;
 import static org.bukkit.inventory.ItemFlag.values;
 import static pl.mrstudios.deathrun.api.arena.enums.GameState.*;
 import static pl.mrstudios.deathrun.api.arena.user.enums.Role.DEATH;
@@ -404,13 +405,22 @@ public class ArenaServiceRunnable extends BukkitRunnable {
                 .stream()
                 .map(IUser::asBukkit)
                 .filter(Objects::nonNull)
-                .forEach((player) ->
-                        this.audiences.player(player).showTitle(title(
-                                miniMessage().deserialize(this.configuration.language().arenaGameEndTitle),
-                                miniMessage().deserialize(this.configuration.language().arenaGameEndSubtitle),
-                                times(ofMillis(250), ofMillis(2500), ofMillis(250))
-                        ))
-                );
+                .forEach((player) -> {
+                    this.audiences.player(player).showTitle(title(
+                            miniMessage().deserialize(this.configuration.language().arenaGameEndTitle),
+                            miniMessage().deserialize(this.configuration.language().arenaGameEndSubtitle),
+                            times(ofMillis(250), ofMillis(2500), ofMillis(250))
+                    ));
+
+                    // Give the leave bed during ENDING so remaining DEATH players are never stuck.
+                    player.getInventory().setItem(
+                            8,
+                            new ItemBuilder(RED_BED)
+                                    .name(miniMessage().deserialize(this.configuration.language().arenaItemLeaveName))
+                                    .itemFlags(values())
+                                    .build()
+                    );
+                });
 
     }
 
