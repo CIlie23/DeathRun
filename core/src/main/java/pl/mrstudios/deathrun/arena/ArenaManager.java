@@ -106,6 +106,28 @@ public class ArenaManager {
         return this.runtimesByMapId.get(mapId.toLowerCase(Locale.ROOT));
     }
 
+    public @Nullable Location resolveMapLocation(
+            @Nullable Location location,
+            @NotNull MapConfiguration.MapDefinition map
+    ) {
+        if (location == null)
+            return null;
+
+        if (location.getWorld() != null)
+            return location;
+
+        if (map.world == null || map.world.isBlank())
+            return location;
+
+        World world = this.server.getWorld(map.world);
+        if (world == null)
+            return location;
+
+        Location clone = location.clone();
+        clone.setWorld(world);
+        return clone;
+    }
+
     public @Nullable MapConfiguration.MapDefinition mapForPlayer(
             @NotNull Player player
     ) {
@@ -462,54 +484,32 @@ public class ArenaManager {
         return stripped == null || stripped.isBlank() ? player.getName() : stripped;
     }
 
-        private void ensureMapWorldBindings(
+    public void ensureMapWorldBindings(
             @NotNull MapConfiguration.MapDefinition map
         ) {
-        if (map.world == null || map.world.isBlank())
-            return;
-
-        World world = this.server.getWorld(map.world);
-        if (world == null)
-            return;
-
-        if (map.arenaWaitingLobbyLocation != null && map.arenaWaitingLobbyLocation.getWorld() == null) {
-            Location clone = map.arenaWaitingLobbyLocation.clone();
-            clone.setWorld(world);
-            map.arenaWaitingLobbyLocation = clone;
-        }
+        map.arenaWaitingLobbyLocation = this.resolveMapLocation(map.arenaWaitingLobbyLocation, map);
 
         map.arenaRunnerSpawnLocations = map.arenaRunnerSpawnLocations.stream()
-            .map((location) -> this.withWorldIfMissing(location, world))
+            .map((location) -> this.resolveMapLocation(location, map))
             .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
         map.arenaDeathSpawnLocations = map.arenaDeathSpawnLocations.stream()
-            .map((location) -> this.withWorldIfMissing(location, world))
+            .map((location) -> this.resolveMapLocation(location, map))
             .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
         map.arenaStartBarrierBlocks = map.arenaStartBarrierBlocks.stream()
-            .map((location) -> this.withWorldIfMissing(location, world))
+            .map((location) -> this.resolveMapLocation(location, map))
             .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
 
         map.arenaCheckpoints = map.arenaCheckpoints.stream()
             .map((checkpoint) -> new pl.mrstudios.deathrun.arena.checkpoint.Checkpoint(
                 checkpoint.id(),
-                this.withWorldIfMissing(checkpoint.spawn(), world),
+                Objects.requireNonNull(this.resolveMapLocation(checkpoint.spawn(), map), "checkpoint spawn"),
                 checkpoint.locations().stream()
-                    .map((location) -> this.withWorldIfMissing(location, world))
-                    .toList()
+                    .map((location) -> Objects.requireNonNull(this.resolveMapLocation(location, map), "checkpoint region location"))
+                    .toList(),
+                checkpoint.name()
             ))
             .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
-        }
-
-        private @NotNull Location withWorldIfMissing(
-            @NotNull Location location,
-            @NotNull World world
-        ) {
-        if (location.getWorld() != null)
-            return location;
-
-        Location clone = location.clone();
-        clone.setWorld(world);
-        return clone;
-        }
+    }
 
     private void resetPlayerScoreboard(
             @NotNull Player player

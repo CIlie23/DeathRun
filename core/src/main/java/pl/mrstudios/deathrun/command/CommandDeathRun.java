@@ -293,10 +293,19 @@ public class CommandDeathRun {
             return;
         }
 
+        this.arenaManager.ensureMapWorldBindings(map);
+
+        Location target = this.arenaManager.resolveMapLocation(this.setupTeleportTarget(player, map), map);
+        if (target != null && target.getWorld() == null) {
+            this.message(player, this.configuration.language().commandMessageSetupMapWorldUnavailable
+                    .replace("<map>", this.safe(map.id))
+                    .replace("<world>", this.safe(map.world)));
+            return;
+        }
+
         this.setupMapSelection.put(player.getUniqueId(), this.configuration.map().normalizedMapId(map.id));
         this.setupEditModePlayers.add(player.getUniqueId());
 
-        Location target = this.setupTeleportTarget(player, map);
         if (target != null)
             player.teleport(target);
 
@@ -759,9 +768,17 @@ public class CommandDeathRun {
             return;
         }
 
-        player.teleport(checkpoint.spawn());
+        Location spawn = this.arenaManager.resolveMapLocation(checkpoint.spawn(), map);
+        if (spawn == null || spawn.getWorld() == null) {
+            this.message(player, this.configuration.language().commandMessageSetupMapWorldUnavailable
+                .replace("<map>", this.safe(map.id))
+                .replace("<world>", this.safe(map.world)));
+            return;
+        }
+
+        player.teleport(spawn);
         this.message(player, PREFIX + "<gray>Teleported to checkpoint <white>" + this.displayCheckpointNumber(map, checkpoint.id()) + "<gray> at <white>"
-                + checkpoint.spawn().getBlockX() + ", " + checkpoint.spawn().getBlockY() + ", " + checkpoint.spawn().getBlockZ());
+            + spawn.getBlockX() + ", " + spawn.getBlockY() + ", " + spawn.getBlockZ());
     }
 
     @Execute(name = "setup checkpoint tp")
@@ -791,9 +808,17 @@ public class CommandDeathRun {
         }
 
         this.setupMapSelection.put(player.getUniqueId(), this.configuration.map().normalizedMapId(map.id));
-        player.teleport(checkpoint.spawn());
+        Location spawn = this.arenaManager.resolveMapLocation(checkpoint.spawn(), map);
+        if (spawn == null || spawn.getWorld() == null) {
+            this.message(player, this.configuration.language().commandMessageSetupMapWorldUnavailable
+                .replace("<map>", this.safe(map.id))
+                .replace("<world>", this.safe(map.world)));
+            return;
+        }
+
+        player.teleport(spawn);
         this.message(player, PREFIX + "<gray>Teleported to checkpoint <white>" + this.displayCheckpointNumber(map, checkpoint.id()) + "<gray> at <white>"
-                + checkpoint.spawn().getBlockX() + ", " + checkpoint.spawn().getBlockY() + ", " + checkpoint.spawn().getBlockZ());
+            + spawn.getBlockX() + ", " + spawn.getBlockY() + ", " + spawn.getBlockZ());
     }
 
     @Execute(name = "setup checkpoint delete")
@@ -1257,6 +1282,7 @@ public class CommandDeathRun {
         map.arenaSetupEnabled = false;
         this.configuration.map().save();
         this.setupEditModePlayers.remove(player.getUniqueId());
+        this.arenaManager.returnPlayerToHub(player);
 
         this.message(player, this.configuration.language().commandMessageSetupMapPreflightPassed.replace("<map>", this.safe(map.id)));
         this.message(player, this.configuration.language().commandMessageSaveSuccess);

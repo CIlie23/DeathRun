@@ -6,18 +6,23 @@ import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.potion.PotionEffect;
 import org.jetbrains.annotations.NotNull;
 import pl.mrstudios.commons.inject.annotation.Inject;
+import pl.mrstudios.deathrun.arena.ArenaManager;
 import pl.mrstudios.deathrun.config.Configuration;
 
 import static org.bukkit.event.EventPriority.MONITOR;
+import static pl.mrstudios.deathrun.api.arena.enums.GameState.PLAYING;
 
 public class ArenaBlockEffectListener implements Listener {
 
+        private final ArenaManager arenaManager;
     private final Configuration configuration;
 
     @Inject
     public ArenaBlockEffectListener(
+                        @NotNull ArenaManager arenaManager,
             @NotNull Configuration configuration
     ) {
+                this.arenaManager = arenaManager;
         this.configuration = configuration;
     }
 
@@ -25,6 +30,10 @@ public class ArenaBlockEffectListener implements Listener {
     public void onStepOnBlockEffect(
             @NotNull PlayerMoveEvent event
     ) {
+
+        var runtime = this.arenaManager.runtimeForPlayer(event.getPlayer());
+        if (runtime == null || runtime.arena().getGameState() != PLAYING)
+            return;
 
         if (
                 event.getFrom().getBlockX() == event.getTo().getBlockX()

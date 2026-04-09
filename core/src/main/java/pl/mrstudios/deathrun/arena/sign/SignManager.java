@@ -130,6 +130,8 @@ public class SignManager {
         if (runtime == null)
             return false;
 
+        this.arenaManager.ensureMapWorldBindings(runtime.map());
+
         if (!this.arenaManager.isMapConfigured(runtime.map()))
             return false;
 

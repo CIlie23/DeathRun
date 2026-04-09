@@ -163,6 +163,7 @@ public class LanguageConfiguration extends OkaeriConfig {
         public String commandMessageSetupMapMissing = "<reset> <dark_red><b>*</b> <red>Map <dark_red><map> <red>does not exist.";
         public String commandMessageSetupMapAlreadyExists = "<reset> <dark_red><b>*</b> <red>Map <dark_red><map> <red>already exists.";
         public String commandMessageSetupMapInvalidWorld = "<reset> <dark_red><b>*</b> <red>World <dark_red><world> <red>is not loaded.";
+        public String commandMessageSetupMapWorldUnavailable = "<reset> <dark_red><b>*</b> <red>The world for this map could not be found. Please ensure the map's world is loaded.";
         public String commandMessageSetupMapNoSelection = "<reset> <dark_red><b>*</b> <red>Select setup map first using <white>/deathrun setup maps use <id><red>.";
         public String commandMessageSetupMapLocked = "<reset> <dark_red><b>*</b> <red>Selected map setup is disabled. Re-enable it in map.yml or create a new map.";
         public String commandMessageSetupEditModeRequired = "<reset> <dark_red><b>*</b> <red>You must be in edit mode to use this command. Use <white>/deathrun setup maps use <mapname> <red>first.";
