@@ -237,7 +237,7 @@ public class CommandDeathRun {
             @Context Player player
     ) {
         this.message(player, PREFIX + "<gray>Setup command is now action-only. Use setup subcommands directly.");
-        this.message(player, PREFIX + "<gray>Example: <white>/deathrun setup maps list</white>");
+        this.message(player, PREFIX + "<gray>Example: <white>/dr map list</white>");
     }
 
     @Execute(name = "help")
@@ -257,7 +257,7 @@ public class CommandDeathRun {
         this.sendSetupHelpPage(player, page);
     }
 
-    @Execute(name = "setup maps list")
+    @Execute(name = "map list")
     @Permission("mrstudios.command.deathrun.setup")
     public void setupMapsList(
             @Context Player player
@@ -281,7 +281,7 @@ public class CommandDeathRun {
         }
     }
 
-    @Execute(name = "setup maps use")
+    @Execute(name = "map edit")
     @Permission("mrstudios.command.deathrun.setup")
     public void setupMapsUse(
             @Context Player player,
@@ -326,7 +326,7 @@ public class CommandDeathRun {
         this.message(player, this.configuration.language().commandMessageSetupEditModeEntered.replace("<map>", this.safe(map.id)));
     }
 
-    @Execute(name = "setup maps create")
+    @Execute(name = "map create")
     @Permission("mrstudios.command.deathrun.setup")
     public void setupMapsCreate(
             @Context Player player,
@@ -362,7 +362,7 @@ public class CommandDeathRun {
                 .replace("<world>", map.world));
     }
 
-    @Execute(name = "setup maps delete")
+    @Execute(name = "map delete")
     @Permission("mrstudios.command.deathrun.setup")
     public void setupMapsDelete(
             @Context Player player,
@@ -388,7 +388,7 @@ public class CommandDeathRun {
         this.message(player, this.configuration.language().commandMessageSetupMapDeleted.replace("<map>", map.id));
     }
 
-    @Execute(name = "setup maps enable")
+    @Execute(name = "map enable")
     @Permission("mrstudios.command.deathrun.setup")
     public void setupMapsEnable(
             @Context Player player,
@@ -408,7 +408,7 @@ public class CommandDeathRun {
         this.message(player, this.configuration.language().commandMessageSetupMapSelected.replace("<map>", map.id));
     }
 
-    @Execute(name = "setup maps disable")
+    @Execute(name = "map disable")
     @Permission("mrstudios.command.deathrun.setup")
     public void setupMapsDisable(
             @Context Player player,
@@ -435,7 +435,7 @@ public class CommandDeathRun {
         this.message(player, this.configuration.language().commandMessageSetupMapDisabled.replace("<map>", map.id));
     }
 
-    @Execute(name = "setup maps restore")
+    @Execute(name = "map restore")
     @Permission("mrstudios.command.deathrun.setup")
     public void setupMapsRestore(
             @Context Player player,
@@ -499,7 +499,7 @@ public class CommandDeathRun {
         }
     }
 
-    @Execute(name = "setup maps check")
+    @Execute(name = "map check")
     @Permission("mrstudios.command.deathrun.setup")
     public void setupMapsCheck(
             @Context Player player
@@ -526,7 +526,7 @@ public class CommandDeathRun {
             this.message(player, this.configuration.language().commandMessageSetupMapCheckNoIssues);
     }
 
-    @Execute(name = "setup maps check")
+    @Execute(name = "map check")
     @Permission("mrstudios.command.deathrun.setup")
     public void setupMapsCheckSingle(
             @Context Player player,
@@ -553,7 +553,7 @@ public class CommandDeathRun {
                 .replace("<issues>", String.join(", ", issues)));
     }
 
-    @Execute(name = "setup maps status")
+    @Execute(name = "map status")
     @Permission("mrstudios.command.deathrun.setup")
     public void setupMapsStatus(
             @Context Player player
@@ -565,7 +565,7 @@ public class CommandDeathRun {
             this.sendMapStatus(player, map, false);
     }
 
-    @Execute(name = "setup maps status")
+    @Execute(name = "map status")
     @Permission("mrstudios.command.deathrun.setup")
     public void setupMapsStatusSingle(
             @Context Player player,
@@ -582,7 +582,7 @@ public class CommandDeathRun {
         this.sendMapStatus(player, map, true);
     }
 
-    @Execute(name = "setup maps fixbarrier")
+    @Execute(name = "map fixbarrier")
     @Permission("mrstudios.command.deathrun.setup")
     public void setupMapsFixBarrier(
             @Context Player player,
@@ -607,7 +607,7 @@ public class CommandDeathRun {
         this.message(player, this.configuration.language().commandMessageSetupMapFixBarrierSuccess.replace("<map>", map.id));
     }
 
-    @Execute(name = "setup maps backup")
+    @Execute(name = "map backup")
     @Permission("mrstudios.command.deathrun.setup")
     public void setupMapsBackup(
             @Context Player player,
@@ -643,7 +643,7 @@ public class CommandDeathRun {
         }
     }
 
-    @Execute(name = "setup maps autofix")
+    @Execute(name = "map autofix")
     @Permission("mrstudios.command.deathrun.setup")
     public void setupMapsAutofix(
             @Context Player player,
@@ -699,7 +699,7 @@ public class CommandDeathRun {
                 .replace("<actions>", String.join(", ", actions)));
     }
 
-    @Execute(name = "setup addcheckpoint")
+    @Execute(name = "cp add")
     @Permission("mrstudios.command.deathrun.setup")
     public void addCheckpoint(
             @Context Player player
@@ -733,7 +733,7 @@ public class CommandDeathRun {
 
     }
 
-    @Execute(name = "setup checkpoint list")
+    @Execute(name = "cp list")
     @Permission("mrstudios.command.deathrun.setup")
     public void setupCheckpointList(
             @Context Player player
@@ -765,15 +765,15 @@ public class CommandDeathRun {
                 .append(Component.text(spawn.getBlockX() + ", " + spawn.getBlockY() + ", " + spawn.getBlockZ(), NamedTextColor.GRAY))
                 .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
                 .append(Component.text("[Teleport]", NamedTextColor.GREEN)
-                    .clickEvent(ClickEvent.runCommand("/deathrun setup checkpoint tpclick " + token + " " + checkpoint.id())))
+                    .clickEvent(ClickEvent.runCommand("/dr cp tpclick " + token + " " + checkpoint.id())))
                 .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
                 .append(Component.text("[Delete]", NamedTextColor.RED)
-                    .clickEvent(ClickEvent.runCommand("/deathrun setup checkpoint delclick " + token + " " + checkpoint.id())));
+                    .clickEvent(ClickEvent.runCommand("/dr cp delclick " + token + " " + checkpoint.id())));
             this.message(player, line);
         }
     }
 
-    @Execute(name = "setup checkpoint tpclick")
+    @Execute(name = "cp tpclick")
     @Permission("mrstudios.command.deathrun.setup")
     public void setupCheckpointTeleportClick(
             @Context Player player,
@@ -788,7 +788,7 @@ public class CommandDeathRun {
         this.setupCheckpointTeleport(player, checkpointId);
     }
 
-    @Execute(name = "setup checkpoint tp")
+    @Execute(name = "cp tp")
     @Permission("mrstudios.command.deathrun.setup")
     public void setupCheckpointTeleport(
             @Context Player player,
@@ -821,7 +821,7 @@ public class CommandDeathRun {
             + spawn.getBlockX() + ", " + spawn.getBlockY() + ", " + spawn.getBlockZ());
     }
 
-    @Execute(name = "setup checkpoint tp")
+    @Execute(name = "cp tp")
     @Permission("mrstudios.command.deathrun.setup")
     public void setupCheckpointTeleportMap(
             @Context Player player,
@@ -861,7 +861,7 @@ public class CommandDeathRun {
             + spawn.getBlockX() + ", " + spawn.getBlockY() + ", " + spawn.getBlockZ());
     }
 
-    @Execute(name = "setup checkpoint delete")
+    @Execute(name = "cp delete")
     @Permission("mrstudios.command.deathrun.setup")
     public void setupCheckpointDelete(
             @Context Player player,
@@ -902,7 +902,7 @@ public class CommandDeathRun {
         this.setupCheckpointList(player);
     }
 
-    @Execute(name = "setup checkpoint delclick")
+    @Execute(name = "cp delclick")
     @Permission("mrstudios.command.deathrun.setup")
     public void setupCheckpointDeleteClick(
             @Context Player player,
@@ -917,7 +917,7 @@ public class CommandDeathRun {
         this.setupCheckpointDelete(player, checkpointId);
     }
 
-    @Execute(name = "setup checkpoint setorder")
+    @Execute(name = "cp setorder")
     @Permission("mrstudios.command.deathrun.setup")
     public void setupCheckpointSetOrder(
             @Context Player player,
@@ -968,7 +968,7 @@ public class CommandDeathRun {
                 .replace("<position>", String.valueOf(targetIndex + 1)));
     }
 
-    @Execute(name = "setup checkpoint setfinish")
+    @Execute(name = "cp setfinish")
     @Permission("mrstudios.command.deathrun.setup")
     public void setupCheckpointSetFinish(
             @Context Player player,
@@ -1010,7 +1010,7 @@ public class CommandDeathRun {
             .replace("<checkpoint>", String.valueOf(this.displayCheckpointNumber(map, map.arenaFinishCheckpointId))));
     }
 
-    @Execute(name = "setup checkpoint setname")
+    @Execute(name = "cp setnameindex")
     @Permission("mrstudios.command.deathrun.setup")
     public void setupCheckpointSetName(
             @Context Player player,
@@ -1050,7 +1050,7 @@ public class CommandDeathRun {
                 .replace("<name>", name));
     }
 
-    @Execute(name = "setup checkpoint setnameid")
+    @Execute(name = "cp setname")
     @Permission("mrstudios.command.deathrun.setup")
     public void setupCheckpointSetNameById(
             @Context Player player,
@@ -1087,7 +1087,7 @@ public class CommandDeathRun {
                 .replace("<map>", this.safe(map.id)));
     }
 
-    @Execute(name = "setup checkpoint move")
+    @Execute(name = "cp move")
     @Permission("mrstudios.command.deathrun.setup")
     public void setupCheckpointMove(
             @Context Player player,
@@ -1120,7 +1120,7 @@ public class CommandDeathRun {
                 .replace("<map>", this.safe(map.id)));
     }
 
-    @Execute(name = "setup addspawn")
+    @Execute(name = "addspawn")
     @Permission("mrstudios.command.deathrun.setup")
     public void addSpawn(
             @Context Player player,
@@ -1152,7 +1152,7 @@ public class CommandDeathRun {
 
     }
 
-    @Execute(name = "setup addtrap")
+    @Execute(name = "trap add")
     @Permission("mrstudios.command.deathrun.setup")
     public void addTrap(
             @Context Player player,
@@ -1161,7 +1161,7 @@ public class CommandDeathRun {
         this.trap(player, type, (Object) null);
     }
 
-    @Execute(name = "setup addtrap")
+    @Execute(name = "trap add")
     @Permission("mrstudios.command.deathrun.setup")
     public void addTrap(
             @Context Player player,
@@ -1171,7 +1171,7 @@ public class CommandDeathRun {
         this.trap(player, type, material);
     }
 
-    @Execute(name = "setup addtrap")
+    @Execute(name = "trap add")
     @Permission("mrstudios.command.deathrun.setup")
     public void addTrap(
             @Context Player player,
@@ -1181,7 +1181,7 @@ public class CommandDeathRun {
         this.trap(player, type, particle, 5, 0.25);
     }
 
-    @Execute(name = "setup addtrap")
+    @Execute(name = "trap add")
     @Permission("mrstudios.command.deathrun.setup")
     public void addTrap(
             @Context Player player,
@@ -1193,7 +1193,7 @@ public class CommandDeathRun {
         this.trap(player, type, particle, count, offset);
     }
 
-    @Execute(name = "setup trap list")
+    @Execute(name = "trap list")
     @Permission("mrstudios.command.deathrun.setup")
     public void setupTrapList(
             @Context Player player
@@ -1231,15 +1231,15 @@ public class CommandDeathRun {
                     .append(Component.text(durationSeconds + "s", NamedTextColor.WHITE))
                     .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
                     .append(Component.text("[Teleport]", NamedTextColor.GREEN)
-                        .clickEvent(ClickEvent.runCommand("/deathrun setup trap tpclick " + token + " " + (i + 1))))
+                        .clickEvent(ClickEvent.runCommand("/dr trap tpclick " + token + " " + (i + 1))))
                     .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
                     .append(Component.text("[Delete]", NamedTextColor.RED)
-                        .clickEvent(ClickEvent.runCommand("/deathrun setup trap delclick " + token + " " + (i + 1))));
+                        .clickEvent(ClickEvent.runCommand("/dr trap delclick " + token + " " + (i + 1))));
                 this.message(player, line);
         }
     }
 
-    @Execute(name = "setup trap tpclick")
+    @Execute(name = "trap tpclick")
     @Permission("mrstudios.command.deathrun.setup")
     public void setupTrapTeleportClick(
             @Context Player player,
@@ -1254,7 +1254,7 @@ public class CommandDeathRun {
         this.setupTrapTeleport(player, index);
     }
 
-    @Execute(name = "setup trap tp")
+    @Execute(name = "trap tp")
     @Permission("mrstudios.command.deathrun.setup")
     public void setupTrapTeleport(
             @Context Player player,
@@ -1283,7 +1283,7 @@ public class CommandDeathRun {
                 + button.getBlockX() + ", " + button.getBlockY() + ", " + button.getBlockZ());
     }
 
-    @Execute(name = "setup trap delete")
+    @Execute(name = "trap delete")
     @Permission("mrstudios.command.deathrun.setup")
     public void setupTrapDelete(
             @Context Player player,
@@ -1309,7 +1309,7 @@ public class CommandDeathRun {
         this.setupTrapList(player);
     }
 
-    @Execute(name = "setup trap delclick")
+    @Execute(name = "trap delclick")
     @Permission("mrstudios.command.deathrun.setup")
     public void setupTrapDeleteClick(
             @Context Player player,
@@ -1324,7 +1324,7 @@ public class CommandDeathRun {
         this.setupTrapDelete(player, index);
     }
 
-    @Execute(name = "setup create")
+    @Execute(name = "edit create")
     @Permission("mrstudios.command.deathrun.setup")
     public void setupCreate(
             @Context Player player,
@@ -1358,7 +1358,7 @@ public class CommandDeathRun {
         this.message(player, this.configuration.language().commandMessageSetupEditModeEntered.replace("<map>", this.safe(map.id)));
     }
 
-    @Execute(name = "setup setstartbarrier")
+    @Execute(name = "setbarrier")
     @Permission("mrstudios.command.deathrun.setup")
     public void setStartBarrier(
             @Context Player player
@@ -1366,7 +1366,7 @@ public class CommandDeathRun {
         this.setStartBarrier(player, null);
     }
 
-    @Execute(name = "setup setstartbarrier")
+    @Execute(name = "setbarrier")
     @Permission("mrstudios.command.deathrun.setup")
     public void setStartBarrier(
             @Context Player player,
@@ -1391,7 +1391,7 @@ public class CommandDeathRun {
 
     }
 
-    @Execute(name = "setup setwaitinglobby")
+    @Execute(name = "setlobby")
     @Permission("mrstudios.command.deathrun.setup")
     public void setWaitingLobby(
             @Context Player player
@@ -1408,7 +1408,7 @@ public class CommandDeathRun {
 
     }
 
-    @Execute(name = "setup setmainhub")
+    @Execute(name = "sethub")
     @Permission("mrstudios.command.deathrun.setup")
     public void setMainHub(
             @Context Player player
@@ -1418,7 +1418,7 @@ public class CommandDeathRun {
         this.message(player, "<gold>[DR]</gold> <gray>Main hub location set to your current position.");
     }
 
-    @Execute(name = "setup addteleport")
+    @Execute(name = "addteleport")
     @Permission("mrstudios.command.deathrun.setup")
     public void addTeleportPad(
             @Context Player player
@@ -1440,7 +1440,7 @@ public class CommandDeathRun {
 
     }
 
-    @Execute(name = "setup save")
+    @Execute(name = "save")
     @Permission("mrstudios.command.deathrun.setup")
     public void save(
             @Context Player player
@@ -1489,7 +1489,7 @@ public class CommandDeathRun {
 
     }
 
-    @Execute(name = "setup cancel")
+    @Execute(name = "cancel")
     @Permission("mrstudios.command.deathrun.setup")
     public void cancelSetup(
             @Context Player player

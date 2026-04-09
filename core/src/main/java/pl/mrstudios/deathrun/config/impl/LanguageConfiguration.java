@@ -51,52 +51,51 @@ public class LanguageConfiguration extends OkaeriConfig {
             "<reset>",
             "<reset>    <gold>DeathRun <dark_gray>(v<version>) <gray>by <white>MrStudios Industries",
             "<reset>",
-            "<reset> <b>*</b> <white>/deathrun join <map>",
-            "<reset> <b>*</b> <white>/deathrun join lobby",
-            "<reset> <b>*</b> <white>/deathrun start (map)",
-            "<reset> <b>*</b> <white>/deathrun stop (map)",
-            "<reset> <b>*</b> <white>/deathrun reload",
-            "<reset> <b>*</b> <white>/deathrun maps",
-            "<reset> <b>*</b> <white>/deathrun help (page)",
-            "<reset> <b>*</b> <white>/deathrun leave",
-            "<reset> <b>*</b> <white>/deathrun setup",
+            "<reset> <b>*</b> <white>/dr join <map>",
+            "<reset> <b>*</b> <white>/dr join lobby",
+            "<reset> <b>*</b> <white>/dr start (map)",
+            "<reset> <b>*</b> <white>/dr stop (map)",
+            "<reset> <b>*</b> <white>/dr reload",
+            "<reset> <b>*</b> <white>/dr maps",
+            "<reset> <b>*</b> <white>/dr help (page)",
+            "<reset> <b>*</b> <white>/dr leave",
+            "<reset> <b>*</b> <white>/dr map list",
             "<reset>"
     );
     public List<String> commandHelpSetupLines = asList(
             "<reset>",
             "<reset>    <gold>DeathRun <dark_gray>(v<version>) <gray>by <white>MrStudios Industries",
             "<reset>",
-            "<reset> <b>*</b> <white>/deathrun setup maps list",
-            "<reset> <b>*</b> <white>/deathrun setup maps use <id>",
-            "<reset> <b>*</b> <white>/deathrun setup maps create <id> <world>",
-            "<reset> <b>*</b> <white>/deathrun setup maps delete <id>",
-            "<reset> <b>*</b> <white>/deathrun setup maps enable <id>",
-            "<reset> <b>*</b> <white>/deathrun setup maps disable <id>",
-            "<reset> <b>*</b> <white>/deathrun setup maps restore <id>",
-            "<reset> <b>*</b> <white>/deathrun setup maps check (id)",
-            "<reset> <b>*</b> <white>/deathrun setup maps status (id)",
-            "<reset> <b>*</b> <white>/deathrun setup maps fixbarrier <id>",
-            "<reset> <b>*</b> <white>/deathrun setup maps backup <id>",
-            "<reset> <b>*</b> <white>/deathrun setup maps autofix <id>",
-            "<reset> <b>*</b> <white>/deathrun setup create <name>",
-            "<reset> <b>*</b> <white>/deathrun setup setwaitinglobby",
-            "<reset> <b>*</b> <white>/deathrun setup setstartbarrier (material)",
-            "<reset> <b>*</b> <white>/deathrun setup addspawn <death/runner>",
-            "<reset> <b>*</b> <white>/deathrun setup addtrap <type> (objects)",
-            "<reset> <b>*</b> <white>/deathrun setup addcheckpoint",
-            "<reset> <b>*</b> <white>/deathrun setup checkpoint list",
-            "<reset> <b>*</b> <white>/deathrun setup checkpoint tp <id>",
-            "<reset> <b>*</b> <white>/deathrun setup checkpoint tp <map> <id>",
-            "<reset> <b>*</b> <white>/deathrun setup checkpoint setorder <id> <position>",
-            "<reset> <b>*</b> <white>/deathrun setup checkpoint setname <index> <name>",
-            "<reset> <b>*</b> <white>/deathrun setup checkpoint setnameid <id> <name>",
-            "<reset> <b>*</b> <white>/deathrun setup checkpoint setfinish <id>",
-            "<reset> <b>*</b> <white>/deathrun setup checkpoint move <id>",
-            "<reset> <b>*</b> <white>/deathrun setup checkpoint delete <id>",
-            "<reset> <b>*</b> <white>/deathrun setup setmainhub",
-            "<reset> <b>*</b> <white>/deathrun setup addteleport",
-            "<reset> <b>*</b> <white>/deathrun setup cancel",
-            "<reset> <b>*</b> <white>/deathrun setup save",
+            "<reset> <b>*</b> <white>/dr map list",
+            "<reset> <b>*</b> <white>/dr map edit <id>",
+            "<reset> <b>*</b> <white>/dr map create <id> <world>",
+            "<reset> <b>*</b> <white>/dr map delete <id>",
+            "<reset> <b>*</b> <white>/dr map enable <id>",
+            "<reset> <b>*</b> <white>/dr map disable <id>",
+            "<reset> <b>*</b> <white>/dr map restore <id>",
+            "<reset> <b>*</b> <white>/dr map check (id)",
+            "<reset> <b>*</b> <white>/dr map status (id)",
+            "<reset> <b>*</b> <white>/dr map fixbarrier <id>",
+            "<reset> <b>*</b> <white>/dr map backup <id>",
+            "<reset> <b>*</b> <white>/dr map autofix <id>",
+            "<reset> <b>*</b> <white>/dr edit create <name>",
+            "<reset> <b>*</b> <white>/dr setlobby",
+            "<reset> <b>*</b> <white>/dr setbarrier (material)",
+            "<reset> <b>*</b> <white>/dr addspawn <death/runner>",
+            "<reset> <b>*</b> <white>/dr trap add <type> (objects)",
+            "<reset> <b>*</b> <white>/dr cp add",
+            "<reset> <b>*</b> <white>/dr cp list",
+            "<reset> <b>*</b> <white>/dr cp tp <id>",
+            "<reset> <b>*</b> <white>/dr cp tp <map> <id>",
+            "<reset> <b>*</b> <white>/dr cp setorder <id> <position>",
+            "<reset> <b>*</b> <white>/dr cp setname <id> <name>",
+            "<reset> <b>*</b> <white>/dr cp setfinish <id>",
+            "<reset> <b>*</b> <white>/dr cp move <id>",
+            "<reset> <b>*</b> <white>/dr cp delete <id>",
+            "<reset> <b>*</b> <white>/dr sethub",
+            "<reset> <b>*</b> <white>/dr addteleport",
+            "<reset> <b>*</b> <white>/dr cancel",
+            "<reset> <b>*</b> <white>/dr save",
             "<reset>"
     );
     public String commandMessageSetupDisabled = "<dark_red><b>*</b> <red>You can't use that command while setup is disabled.";
@@ -124,12 +123,12 @@ public class LanguageConfiguration extends OkaeriConfig {
                 public String commandMessageStartMapUnavailable = "<dark_red><b>*</b> <red>Map <dark_red><map> <red>is not available.";
                 public String commandMessageStartNoPlayers = "<dark_red><b>*</b> <red>Map <dark_red><map> <red>has no queued players to start.";
                 public String commandMessageStartAlreadyRunning = "<dark_red><b>*</b> <red>Map <dark_red><map> <red>is already running.";
-                public String commandMessageStartNoCurrentMap = "<dark_red><b>*</b> <red>You are not queued in any map. Use <white>/deathrun start <map><red>.";
+                public String commandMessageStartNoCurrentMap = "<dark_red><b>*</b> <red>You are not queued in any map. Use <white>/dr start <map><red>.";
                 public String commandMessageStopSuccess = "<dark_green><b>*</b> <green>Map <dark_green><map> <green>has been stopped and reset to waiting.";
                 public String commandMessageStopMapUnavailable = "<dark_red><b>*</b> <red>Map <dark_red><map> <red>is not available.";
                 public String commandMessageStopAlreadyWaiting = "<gold><b>*</b> <yellow>Map <gold><map> <yellow>is already in waiting state.";
                 public String commandMessageStopMovedToHub = "<dark_red><b>*</b> <red>The match has been stopped by an administrator.";
-                public String commandMessageStopNoCurrentMap = "<dark_red><b>*</b> <red>You are not queued in any map. Use <white>/deathrun stop <map><red>.";
+                public String commandMessageStopNoCurrentMap = "<dark_red><b>*</b> <red>You are not queued in any map. Use <white>/dr stop <map><red>.";
                 public String commandMessageReloadSuccess = "<dark_green><b>*</b> <green>DeathRun configuration and runtimes reloaded.";
                 public String commandMessageReloadFailed = "<dark_red><b>*</b> <red>Reload failed: <dark_red><reason>";
                 public String commandMessageJoinForcedActor = "<dark_green><b>*</b> <green>Executed join for <dark_green><player><green> on map <dark_green><map><green>.";
@@ -166,9 +165,9 @@ public class LanguageConfiguration extends OkaeriConfig {
         public String commandMessageSetupMapAlreadyExists = "<reset> <dark_red><b>*</b> <red>Map <dark_red><map> <red>already exists.";
         public String commandMessageSetupMapInvalidWorld = "<reset> <dark_red><b>*</b> <red>World <dark_red><world> <red>is not loaded.";
         public String commandMessageSetupMapWorldUnavailable = "<reset> <dark_red><b>*</b> <red>The world for this map could not be found. Please ensure the map's world is loaded.";
-        public String commandMessageSetupMapNoSelection = "<reset> <dark_red><b>*</b> <red>Select setup map first using <white>/deathrun setup maps use <id><red>.";
+        public String commandMessageSetupMapNoSelection = "<reset> <dark_red><b>*</b> <red>Select setup map first using <white>/dr map edit <id><red>.";
         public String commandMessageSetupMapLocked = "<reset> <dark_red><b>*</b> <red>Selected map setup is disabled. Re-enable it in map.yml or create a new map.";
-        public String commandMessageSetupEditModeRequired = "<reset> <dark_red><b>*</b> <red>You must be in edit mode to use this command. Use <white>/deathrun setup maps use <mapname> <red>first.";
+        public String commandMessageSetupEditModeRequired = "<reset> <dark_red><b>*</b> <red>You must be in edit mode to use this command. Use <white>/dr map edit <mapname> <red>first.";
         public String commandMessageSetupEditModeAlreadyActive = "<reset> <gold><b>*</b> <yellow>You are already in edit mode. Please finish editing your current map first.";
         public String commandMessageSetupEditModeEntered = "<reset> <dark_green><b>*</b> <green>Edit mode enabled for map <dark_green><map><green>.";
         public String commandMessageSetupEditModeSaved = "<reset> <dark_green><b>*</b> <green>Editing complete; all changes have been saved.";

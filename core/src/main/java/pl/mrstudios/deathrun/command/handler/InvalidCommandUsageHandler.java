@@ -36,19 +36,19 @@ public class InvalidCommandUsageHandler implements InvalidUsageHandler<CommandSe
 
     private @NotNull String usageFor(@NotNull Invocation<CommandSender> invocation) {
         if (invocation.arguments().asList().isEmpty()) {
-            return "<red>Invalid usage. <gray>Try: <white>/deathrun <dark_gray>| <white>/deathrun join <map> <dark_gray>| <white>/deathrun start (map) <dark_gray>| <white>/deathrun stop (map) <dark_gray>| <white>/deathrun reload <dark_gray>| <white>/deathrun leave <dark_gray>| <white>/deathrun setup";
+            return "<red>Invalid usage. <gray>Try: <white>/dr <dark_gray>| <white>/dr join <map> <dark_gray>| <white>/dr start (map) <dark_gray>| <white>/dr stop (map) <dark_gray>| <white>/dr reload <dark_gray>| <white>/dr leave <dark_gray>| <white>/dr map list";
         }
 
         String first = invocation.arguments().asList().get(0).toLowerCase();
-        if (!"setup".equals(first)) {
-            return "<red>Unknown subcommand. <gray>Use <white>/deathrun join <map><gray>, <white>/deathrun start (map)<gray>, <white>/deathrun stop (map)<gray>, <white>/deathrun reload<gray>, <white>/deathrun leave <gray>or <white>/deathrun setup";
+        if (!("map".equals(first) || "cp".equals(first) || "trap".equals(first) || "edit".equals(first))) {
+            return "<red>Unknown subcommand. <gray>Use <white>/dr join <map><gray>, <white>/dr start (map)<gray>, <white>/dr stop (map)<gray>, <white>/dr reload<gray>, <white>/dr leave<gray>, <white>/dr map ...<gray>, <white>/dr cp ... <gray>or <white>/dr trap ...";
         }
 
         if (invocation.arguments().asList().size() == 1) {
-            return "<gray>Setup commands: <white>/deathrun setup";
+            return "<gray>Edit commands: <white>/dr map ... <gray>| <white>/dr cp ... <gray>| <white>/dr trap ...";
         }
 
-        return "<red>Invalid setup usage. <gray>Try: <white>/deathrun setup create <name><dark_gray>, <white>setwaitinglobby<dark_gray>, <white>setstartbarrier (material)<dark_gray>, <white>addspawn <death/runner><dark_gray>, <white>addtrap <type> (args)<dark_gray>, <white>addcheckpoint<dark_gray>, <white>addteleport<dark_gray>, <white>save";
+        return "<red>Invalid edit usage. <gray>Try: <white>/dr edit create <name><dark_gray>, <white>/dr setlobby<dark_gray>, <white>/dr setbarrier (material)<dark_gray>, <white>/dr addspawn <death/runner><dark_gray>, <white>/dr trap add <type> (args)<dark_gray>, <white>/dr cp add<dark_gray>, <white>/dr addteleport<dark_gray>, <white>/dr save";
     }
 
 }
