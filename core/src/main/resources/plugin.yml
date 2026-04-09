@@ -11,11 +11,11 @@ depend:
 
 # Commands
 commands:
-  deathrun:
+  dr:
     description: "DeathRun main command"
-    usage: "/<command> [join|start|stop|reload|maps|leave|setup]"
+    usage: "/<command> [join|start|stop|reload|maps|leave|map|cp|trap|save|cancel]"
     aliases:
-      - "dr"
+      - "deathrun"
     permission: "mrstudios.command.deathrun"
 
 # Permissions

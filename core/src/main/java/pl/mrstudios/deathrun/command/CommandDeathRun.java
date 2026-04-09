@@ -66,10 +66,9 @@ import static pl.mrstudios.deathrun.api.arena.user.enums.Role.DEATH;
 import static pl.mrstudios.deathrun.api.arena.user.enums.Role.RUNNER;
 
 @Command(
-        name = "deathrun",
-        aliases = { "dr" }
+    name = "dr",
+    aliases = { "deathrun" }
 ) @SuppressWarnings("unused")
-@Permission("mrstudios.command.deathrun")
 public class CommandDeathRun {
 
     private static final String PREFIX = "<gold>[DR]</gold> ";
@@ -120,7 +119,7 @@ public class CommandDeathRun {
     }
 
     @Execute(name = "maps")
-    @Permission("mrstudios.command.deathrun")
+        @Permission("mrstudios.command.deathrun.join")
     public void maps(
             @Context Player player
     ) {
