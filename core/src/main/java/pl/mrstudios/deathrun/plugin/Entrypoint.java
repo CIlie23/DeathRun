@@ -42,6 +42,7 @@ import pl.mrstudios.deathrun.config.impl.PluginConfiguration;
 import pl.mrstudios.deathrun.exception.MissingDependencyException;
 import pl.mrstudios.deathrun.placeholder.DeathRunPlaceholderExpansion;
 import pl.mrstudios.deathrun.player.PlayerStatisticsService;
+import pl.mrstudios.deathrun.reward.RewardService;
 import org.bukkit.map.MapPalette;
 import org.jetbrains.annotations.Nullable;
 
@@ -68,6 +69,7 @@ public class Entrypoint extends JavaPlugin {
     private SignManager signManager;
     private WinMapManager winMapManager;
     private PlayerStatisticsService playerStatisticsService;
+    private RewardService rewardService;
     private volatile BufferedImage winParchmentImage;
     private volatile BufferedImage loseParchmentImage;
 
@@ -98,6 +100,7 @@ public class Entrypoint extends JavaPlugin {
                 this.configurationFactory.produce(MapConfiguration.class, "map.yml")
         );
         this.playerStatisticsService = new PlayerStatisticsService(this);
+        this.rewardService = new RewardService(this, this.configuration);
 
         /* Data Folders */
         File songsDirectory = new File(this.getDataFolder(), "songs");
@@ -114,7 +117,7 @@ public class Entrypoint extends JavaPlugin {
         this.loadParchmentImagesAsync();
 
         /* Arena Manager */
-        this.arenaManager = new ArenaManager(this, this.getServer(), this.audiences, this.configuration, this.winMapManager);
+        this.arenaManager = new ArenaManager(this, this.getServer(), this.audiences, this.configuration, this.winMapManager, this.rewardService);
         this.signManager = new SignManager(this, this.arenaManager);
         this.arenaManager.setSignManager(this.signManager);
 
@@ -138,6 +141,7 @@ public class Entrypoint extends JavaPlugin {
                 .register(ArenaManager.class, this.arenaManager)
                 .register(SignManager.class, this.signManager)
                 .register(WinMapManager.class, this.winMapManager)
+                .register(RewardService.class, this.rewardService)
                 .register(TrapRegistry.class, this.trapRegistry)
                 .register(PlayerStatisticsService.class, this.playerStatisticsService)
                 .register(MapSelectorService.class, new MapSelectorService(this, this.configuration, this.arenaManager, this.audiences))

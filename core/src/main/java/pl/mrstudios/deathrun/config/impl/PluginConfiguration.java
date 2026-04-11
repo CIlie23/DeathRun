@@ -137,4 +137,38 @@ public class PluginConfiguration extends OkaeriConfig {
     public Sound arenaSoundTrapDelay = ENTITY_VILLAGER_NO;
     public Sound arenaSoundPlayerDeath = ENTITY_SKELETON_DEATH;
 
+    @Comment({
+            "",
+            "------------------------------------------------------------------------",
+            "                               REWARDS",
+            "------------------------------------------------------------------------",
+            ""
+    })
+    public RewardConfiguration rewards = new RewardConfiguration();
+
+    @Names(strategy = HYPHEN_CASE, modifier = TO_LOWER_CASE)
+    public static class RewardConfiguration extends OkaeriConfig {
+
+        public List<String> runnerFirstPlace = of(
+                "give %player% diamond 5"
+        );
+
+        public List<String> runnerSecondPlace = of(
+                "give %player% diamond 3"
+        );
+
+        public List<String> runnerThirdPlace = of(
+                "give %player% diamond 2"
+        );
+
+        public List<String> runnerParticipation = of(
+                "give %player% diamond 1"
+        );
+
+        public List<String> deathWin = of(
+                "give %player% gold_ingot 3"
+        );
+
+    }
+
 }

@@ -15,7 +15,7 @@ fun projectVersion(): String = if (versionDetails().branchName == "ver/latest")
     valueOf(project.version) else format("%s (git/%s)", project.version, versionDetails().gitHash)
 */
 
-val manualVersion = "1.4.0"
+val manualVersion = "1.4.1"
 
 project.group = project.parent?.group!!
 project.version = project.parent?.version!!

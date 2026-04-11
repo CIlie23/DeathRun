@@ -26,6 +26,7 @@ import pl.mrstudios.deathrun.api.arena.user.enums.Role;
 import pl.mrstudios.deathrun.arena.win.WinMapManager;
 import pl.mrstudios.deathrun.config.Configuration;
 import pl.mrstudios.deathrun.config.impl.MapConfiguration;
+import pl.mrstudios.deathrun.reward.RewardService;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -61,6 +62,7 @@ public class ArenaServiceRunnable extends BukkitRunnable {
         private final MapConfiguration.MapDefinition map;
         private final ArenaManager arenaManager;
                 private final WinMapManager winMapManager;
+    private final RewardService rewardService;
     private final Plugin plugin;
     private final Server server;
     private final BukkitAudiences audiences;
@@ -69,6 +71,7 @@ public class ArenaServiceRunnable extends BukkitRunnable {
     private BukkitTask sidebarTask;
                 private RadioSongPlayer backgroundSongPlayer;
         private boolean forceStartRequested;
+        private boolean timerExpired;
 
     @Inject
     public ArenaServiceRunnable(
@@ -76,6 +79,7 @@ public class ArenaServiceRunnable extends BukkitRunnable {
             @NotNull MapConfiguration.MapDefinition map,
             @NotNull ArenaManager arenaManager,
             @NotNull WinMapManager winMapManager,
+            @NotNull RewardService rewardService,
             @NotNull Plugin plugin,
             @NotNull Server server,
             @NotNull BukkitAudiences audiences,
@@ -86,6 +90,7 @@ public class ArenaServiceRunnable extends BukkitRunnable {
         this.map = map;
         this.arenaManager = arenaManager;
         this.winMapManager = winMapManager;
+        this.rewardService = rewardService;
         this.server = server;
         this.plugin = plugin;
         this.audiences = audiences;
@@ -274,14 +279,17 @@ public class ArenaServiceRunnable extends BukkitRunnable {
         this.arena.setElapsedTime(this.arena.getElapsedTime() + 1);
         this.arena.setRemainingTime(this.arena.getRemainingTime() - 1);
 
-        if (this.arena.getRemainingTime() <= 0)
+        if (this.arena.getRemainingTime() <= 0) {
+            this.timerExpired = true;
             this.setState(ENDING);
+        }
 
     }
 
     protected void stateSwitchToPlaying() {
 
                 this.forceStartRequested = false;
+        this.timerExpired = false;
 
                 this.arenaManager.applyQueuedPlayersForMapStart(this.resolvedMapId());
 
@@ -302,6 +310,8 @@ public class ArenaServiceRunnable extends BukkitRunnable {
                 .stream()
                 .filter((user) -> user.getRole() != DEATH)
                 .forEach((user) -> user.setRole(RUNNER));
+
+        this.rewardService.resetMatch(this.resolvedMapId(), this.arena.getRunners().size());
 
         range(0, this.arena.getRunners().size())
                 .filter((i) -> this.arena.getRunners().get(i).asBukkit() != null)
@@ -422,6 +432,14 @@ public class ArenaServiceRunnable extends BukkitRunnable {
                                     .build()
                     );
                 });
+
+        if (this.timerExpired) {
+            this.rewardService.rewardDeathWin(this.resolvedMapId(), this.arena.getDeaths().stream()
+                    .map(IUser::asBukkit)
+                    .filter(Objects::nonNull)
+                    .toList());
+            this.timerExpired = false;
+        }
 
     }
 

@@ -24,6 +24,7 @@ import pl.mrstudios.deathrun.arena.win.WinMapManager;
 import pl.mrstudios.deathrun.config.Configuration;
 import pl.mrstudios.deathrun.config.impl.MapConfiguration;
 import pl.mrstudios.deathrun.plugin.Entrypoint;
+import pl.mrstudios.deathrun.reward.RewardService;
 
 import java.awt.image.BufferedImage;
 import java.util.Map;
@@ -55,6 +56,7 @@ public class ArenaCheckpointReachedListener implements Listener {
     private final BukkitAudiences audiences;
     private final Configuration configuration;
         private final WinMapManager winMapManager;
+        private final RewardService rewardService;
         private final Map<UUID, Integer> progressionByPlayer = new ConcurrentHashMap<>();
 
     @Inject
@@ -64,7 +66,8 @@ public class ArenaCheckpointReachedListener implements Listener {
             @NotNull Server server,
             @NotNull BukkitAudiences audiences,
                         @NotNull Configuration configuration,
-                        @NotNull WinMapManager winMapManager
+                        @NotNull WinMapManager winMapManager,
+                        @NotNull RewardService rewardService
     ) {
         this.arenaManager = arenaManager;
         this.plugin = plugin;
@@ -72,6 +75,7 @@ public class ArenaCheckpointReachedListener implements Listener {
         this.audiences = audiences;
         this.configuration = configuration;
                 this.winMapManager = winMapManager;
+                this.rewardService = rewardService;
     }
 
     @SuppressWarnings("deprecation")
@@ -119,8 +123,9 @@ public class ArenaCheckpointReachedListener implements Listener {
                         @NotNull String source
     ) {
         Arena arena = this.arenaManager.arenaForPlayer(player);
+        ArenaManager.ArenaRuntime runtime = this.arenaManager.runtimeForPlayer(player);
         MapConfiguration.MapDefinition map = this.arenaManager.mapForPlayer(player);
-                if (arena == null || map == null) {
+                if (arena == null || map == null || runtime == null) {
                         this.progressionByPlayer.remove(player.getUniqueId());
             return;
                 }
@@ -210,6 +215,8 @@ public class ArenaCheckpointReachedListener implements Listener {
                 new UserArenaFinishedEvent(user, time, position)
         );
 
+        this.rewardService.rewardRunnerFinish(player, runtime.mapId(), position);
+
         if (position == 1)
             if (arena.getRemainingTime() >= 60)
                 arena.setRemainingTime(60);
@@ -239,7 +246,7 @@ public class ArenaCheckpointReachedListener implements Listener {
 
         user.setRole(SPECTATOR);
         ofNullable(this.arenaManager.runtimeForPlayer(player))
-                .ifPresent((runtime) -> runtime.service().removeBackgroundSongPlayer(player));
+                .ifPresent((runtimeHandle) -> runtimeHandle.service().removeBackgroundSongPlayer(player));
 
         player.teleport(map.arenaCheckpoints.get(0).spawn());
         arena.getUsers().stream()

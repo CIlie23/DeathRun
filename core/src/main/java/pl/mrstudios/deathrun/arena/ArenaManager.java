@@ -22,6 +22,7 @@ import pl.mrstudios.deathrun.arena.sign.SignManager;
 import pl.mrstudios.deathrun.arena.win.WinMapManager;
 import pl.mrstudios.deathrun.config.Configuration;
 import pl.mrstudios.deathrun.config.impl.MapConfiguration;
+import pl.mrstudios.deathrun.reward.RewardService;
 
 import java.util.*;
 
@@ -45,6 +46,7 @@ public class ArenaManager {
     private final BukkitAudiences audiences;
     private final Configuration configuration;
     private final WinMapManager winMapManager;
+    private final RewardService rewardService;
     private SignManager signManager;
 
     private final Map<String, ArenaRuntime> runtimesByMapId = new LinkedHashMap<>();
@@ -56,13 +58,15 @@ public class ArenaManager {
             @NotNull Server server,
             @NotNull BukkitAudiences audiences,
             @NotNull Configuration configuration,
-            @NotNull WinMapManager winMapManager
+            @NotNull WinMapManager winMapManager,
+            @NotNull RewardService rewardService
     ) {
         this.plugin = plugin;
         this.server = server;
         this.audiences = audiences;
         this.configuration = configuration;
         this.winMapManager = winMapManager;
+        this.rewardService = rewardService;
     }
 
     public void initialize() {
@@ -76,7 +80,7 @@ public class ArenaManager {
             this.ensureMapWorldBindings(map);
             String mapId = this.mapId(map);
             Arena arena = new Arena(this.mapName(map));
-            ArenaServiceRunnable service = new ArenaServiceRunnable(arena, map, this, this.winMapManager, this.plugin, this.server, this.audiences, this.configuration);
+            ArenaServiceRunnable service = new ArenaServiceRunnable(arena, map, this, this.winMapManager, this.rewardService, this.plugin, this.server, this.audiences, this.configuration);
             service.runTaskTimer(this.plugin, 0, 20);
             this.runtimesByMapId.put(mapId, new ArenaRuntime(mapId, map, arena, service));
         }
@@ -209,7 +213,7 @@ public class ArenaManager {
         this.ensureMapWorldBindings(map);
 
         Arena arena = new Arena(this.mapName(map));
-        ArenaServiceRunnable service = new ArenaServiceRunnable(arena, map, this, this.winMapManager, this.plugin, this.server, this.audiences, this.configuration);
+        ArenaServiceRunnable service = new ArenaServiceRunnable(arena, map, this, this.winMapManager, this.rewardService, this.plugin, this.server, this.audiences, this.configuration);
         service.runTaskTimer(this.plugin, 0, 20);
         this.runtimesByMapId.put(normalizedMapId, new ArenaRuntime(normalizedMapId, map, arena, service));
     }
