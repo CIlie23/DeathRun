@@ -506,8 +506,8 @@ public class ArenaServiceRunnable extends BukkitRunnable {
                                                     this.applySidebarPlaceholders(player,
                                                             content.replace("<map>", this.displayMapName())
                                                             .replace("<role>", this.rolePrefix(user.getRole()))
-                                                            .replace("<currentPlayers>", valueOf(this.arena.getUsers().size()))
-                                                            .replace("<maxPlayers>", valueOf(this.map.arenaRunnerSpawnLocations.size() + this.map.arenaDeathSpawnLocations.size()))
+                                                            .replace("<currentPlayers>", valueOf(this.currentPlayersForDisplay()))
+                                                            .replace("<maxPlayers>", valueOf(this.arenaManager.maxPlayers(this.map)))
                                                             .replace("<timer>", valueOf(this.startingTimer))
                                                             .replace("<time>", valueOf(this.arena.getRemainingTime()))
                                                             .replace("<timeFormatted>", this.formatTime(this.arena.getRemainingTime()))
@@ -528,10 +528,28 @@ public class ArenaServiceRunnable extends BukkitRunnable {
                         @NotNull Player player,
                         @NotNull String content
         ) {
+                content = this.applyRuntimeMapPlaceholders(content);
+
                 if (this.plugin.getServer().getPluginManager().getPlugin("PlaceholderAPI") == null)
                         return content;
 
                 return PlaceholderAPI.setPlaceholders(player, content);
+        }
+
+        private @NotNull String applyRuntimeMapPlaceholders(
+                        @NotNull String content
+        ) {
+                return content
+                        .replace("%deathrun_map_players_mapid%", valueOf(this.currentPlayersForDisplay()))
+                        .replace("%deathrun_map_max_players_mapid%", valueOf(this.arenaManager.maxPlayers(this.map)))
+                        .replace("%deathrun_map_status_mapid%", this.currentMapStatusForDisplay());
+        }
+
+        private @NotNull String currentMapStatusForDisplay() {
+                return switch (this.arena.getGameState()) {
+                        case WAITING, STARTING -> "WAITING";
+                        case PLAYING, ENDING -> "IN_PROGRESS";
+                };
         }
 
     protected String rolePrefix(
@@ -644,7 +662,7 @@ public class ArenaServiceRunnable extends BukkitRunnable {
                         : this.configuration.plugin().arenaRequiredPlayersToStart;
 
                 if (configuredRequired <= 0)
-                        configuredRequired = this.configuration.plugin().arenaMinPlayers;
+                        configuredRequired = 1;
 
                 if (mapCapacity <= 0)
                         return max(1, configuredRequired);
@@ -658,6 +676,15 @@ public class ArenaServiceRunnable extends BukkitRunnable {
 
         private int totalPlayersReadyToStart() {
                 return this.arena.getUsers().size() + this.arenaManager.queuedPlayersForMap(this.resolvedMapId());
+        }
+
+        private int currentPlayersForDisplay() {
+                int maxPlayers = this.arenaManager.maxPlayers(this.map);
+                int totalReady = this.totalPlayersReadyToStart();
+                if (maxPlayers <= 0)
+                        return Math.max(0, totalReady);
+
+                return min(maxPlayers, Math.max(0, totalReady));
         }
 
         private @NotNull String resolvedMapId() {

@@ -151,6 +151,16 @@ public class CommandDeathRun {
         this.joinPlayerToMap(target, mapId, sender);
     }
 
+    @Execute(name = "join")
+    @Permission("mrstudios.command.deathrun.join.others")
+    public void joinPlayerMapOrder(
+            @Context CommandSender sender,
+            @Arg("player") Player target,
+            @Arg("map") String mapId
+    ) {
+        this.joinPlayerToMap(target, mapId, sender);
+    }
+
     @Execute(name = "start")
     @Permission("mrstudios.command.deathrun.start")
     public void startCurrent(

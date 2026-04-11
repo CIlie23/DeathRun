@@ -525,10 +525,7 @@ public class ArenaManager {
         if (configuredMax <= 0)
             return Math.max(1, spawnCapacity);
 
-        if (spawnCapacity <= 0)
-            return configuredMax;
-
-        return Math.max(1, Math.min(configuredMax, spawnCapacity));
+        return Math.max(1, configuredMax);
     }
 
     public boolean isMapConfigured(

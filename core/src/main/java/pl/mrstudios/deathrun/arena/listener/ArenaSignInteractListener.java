@@ -1,11 +1,11 @@
 package pl.mrstudios.deathrun.arena.listener;
 
+import io.papermc.paper.event.player.PlayerOpenSignEvent;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.block.Sign;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.inventory.EquipmentSlot;
 import org.jetbrains.annotations.NotNull;
 import pl.mrstudios.commons.inject.annotation.Inject;
 import pl.mrstudios.deathrun.arena.ArenaManager;
@@ -13,7 +13,6 @@ import pl.mrstudios.deathrun.arena.sign.SignManager;
 import pl.mrstudios.deathrun.arena.sign.SignManager.QueueSign;
 
 import static org.bukkit.event.EventPriority.HIGHEST;
-import static org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK;
 
 public class ArenaSignInteractListener implements Listener {
 
@@ -33,19 +32,13 @@ public class ArenaSignInteractListener implements Listener {
     }
 
     @EventHandler(priority = HIGHEST)
-    public void onPlayerInteract(
-            @NotNull PlayerInteractEvent event
+    public void onPlayerOpenSign(
+            @NotNull PlayerOpenSignEvent event
     ) {
-        if (event.getHand() != EquipmentSlot.HAND)
+        if (!(event.getSign().getLocation().getBlock().getState() instanceof Sign))
             return;
 
-        if (event.getAction() != RIGHT_CLICK_BLOCK || event.getClickedBlock() == null)
-            return;
-
-        if (!(event.getClickedBlock().getState() instanceof Sign))
-            return;
-
-        QueueSign queueSign = this.signManager.signAt(event.getClickedBlock());
+        QueueSign queueSign = this.signManager.signAt(event.getSign().getLocation().getBlock());
         if (queueSign == null)
             return;
 
@@ -66,28 +59,24 @@ public class ArenaSignInteractListener implements Listener {
                     return;
                 }
 
-                if (queueSign.mapId() == null || !this.signManager.queuePlayerToMap(event.getPlayer(), queueSign.mapId())) {
+                if (queueSign.mapId() == null || queueSign.mapId().isBlank()) {
                     event.getPlayer().sendMessage(ChatColor.RED + "This map is currently not joinable.");
                     return;
                 }
 
-                int queued = this.signManager.queuedPlayersCount(queueSign.mapId());
-                ArenaManager.ArenaRuntime runtime = this.arenaManager.runtimeByMapId(queueSign.mapId());
-                int ready = runtime == null ? queued : (runtime.arena().getUsers().size() + queued);
-                int required = runtime == null
-                        ? 0
-                    : runtime.service().requiredPlayersToStartForDisplay();
-                event.getPlayer().sendMessage(ChatColor.GREEN + "Joined queue for map " + queueSign.mapId() + ". "
-                    + ChatColor.GRAY + "(" + ready + "/" + required + " ready)");
+                String consoleCommand = "dr join " + event.getPlayer().getName() + " " + queueSign.mapId();
+                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), consoleCommand);
             }
 
             case AUTOJOIN -> {
-                if (!this.signManager.queuePlayerToBestMap(event.getPlayer())) {
+                String bestMapId = this.signManager.bestJoinableMap().orElse(null);
+                if (bestMapId == null) {
                     event.getPlayer().sendMessage(ChatColor.RED + "No map available for auto-join.");
                     return;
                 }
 
-                event.getPlayer().sendMessage(ChatColor.GREEN + "Joined the best available queue and moved to map lobby.");
+                String consoleCommand = "dr join " + event.getPlayer().getName() + " " + bestMapId;
+                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), consoleCommand);
             }
 
             case LEAVE -> {

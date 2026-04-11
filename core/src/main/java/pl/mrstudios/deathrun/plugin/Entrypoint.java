@@ -233,9 +233,6 @@ public class Entrypoint extends JavaPlugin {
         /* Initialize API */
         createInstance(java.util.Objects.requireNonNullElseGet(this.arenaManager.primaryArena(), () -> new Arena("default")), this.trapRegistry);
 
-        /* Register Channel */
-        this.getServer().getMessenger().registerOutgoingPluginChannel(this, "BungeeCord");
-
         if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
             new DeathRunPlaceholderExpansion(this).register();
         }

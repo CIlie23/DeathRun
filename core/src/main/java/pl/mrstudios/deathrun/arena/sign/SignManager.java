@@ -184,7 +184,10 @@ public class SignManager {
             @NotNull Player player
     ) {
         Optional<String> bestMap = this.bestJoinableMap();
-        return bestMap.filter((mapId) -> this.queuePlayerToMap(player, mapId)).isPresent();
+        if (bestMap.isEmpty())
+            return false;
+
+        return this.queuePlayerToMap(player, bestMap.get());
     }
 
     public boolean leaveQueue(

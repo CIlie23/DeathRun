@@ -97,10 +97,14 @@ public class DeathRunPlaceholderExpansion extends PlaceholderExpansion {
     private int mapPlayers(
             @NotNull String mapId
     ) {
-        if (this.findMap(mapId) == null)
+        MapConfiguration.MapDefinition map = this.findMap(mapId);
+        if (map == null)
             return 0;
 
-        return this.arenaManager.playersInMap(mapId);
+        String normalizedMapId = this.normalizedMapId(map);
+        int players = this.arenaManager.playersInMap(normalizedMapId);
+        int queued = this.arenaManager.queuedPlayersForMap(normalizedMapId);
+        return players + queued;
     }
 
     private int mapMaxPlayers(
@@ -110,7 +114,15 @@ public class DeathRunPlaceholderExpansion extends PlaceholderExpansion {
         if (map == null)
             return 0;
 
-        return this.arenaManager.maxPlayers(map);
+        int configuredMax = map.arenaMaxPlayers != null
+                ? map.arenaMaxPlayers
+                : this.plugin.getConfiguration().plugin().arenaMaxPlayers;
+
+        if (configuredMax > 0)
+            return configuredMax;
+
+        int spawnCapacity = map.arenaRunnerSpawnLocations.size() + map.arenaDeathSpawnLocations.size();
+        return Math.max(1, spawnCapacity);
     }
 
     private @NotNull String mapStatus(
@@ -140,12 +152,28 @@ public class DeathRunPlaceholderExpansion extends PlaceholderExpansion {
     private @Nullable MapConfiguration.MapDefinition findMap(
             @NotNull String mapId
     ) {
+        String normalizedInput = this.plugin.getConfiguration().map().normalizedMapId(mapId);
         for (MapConfiguration.MapDefinition map : this.plugin.getConfiguration().map().resolvedMaps()) {
-            if (map.id != null && map.id.equalsIgnoreCase(mapId))
+            if (map.id != null && this.plugin.getConfiguration().map().normalizedMapId(map.id).equalsIgnoreCase(normalizedInput))
+                return map;
+
+            if (map.name != null && this.plugin.getConfiguration().map().normalizedMapId(map.name).equalsIgnoreCase(normalizedInput))
                 return map;
         }
 
         return null;
+    }
+
+    private @NotNull String normalizedMapId(
+            @NotNull MapConfiguration.MapDefinition map
+    ) {
+        if (map.id != null && !map.id.isBlank())
+            return this.plugin.getConfiguration().map().normalizedMapId(map.id);
+
+        if (map.name != null && !map.name.isBlank())
+            return this.plugin.getConfiguration().map().normalizedMapId(map.name);
+
+        return "default";
     }
 
     private @NotNull String playerState(

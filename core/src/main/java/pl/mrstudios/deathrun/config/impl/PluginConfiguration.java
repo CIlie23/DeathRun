@@ -29,7 +29,7 @@ import static pl.mrstudios.deathrun.api.arena.booster.enums.Direction.FORWARD;
         " ",
         " This is configuration file for DeathRun plugin, if you found any issue ",
         " contact with us through Discord or create issue on GitHub. If you need",
-        " help with configuration visit https://mrstudios.pl/documentation.",
+        " help with configuration visit https://github.com/CIlie23/DeathRun/wiki.",
         " "
 }) @SuppressWarnings("deprecation")
 @Names(strategy = HYPHEN_CASE, modifier = TO_LOWER_CASE)
@@ -42,20 +42,14 @@ public class PluginConfiguration extends OkaeriConfig {
             "------------------------------------------------------------------------",
             ""
     })
-    @Comment({ "Lobby Server Name" })
-    public String server = "dr-lobby-1";
-
         @Comment({ "", "Main hub location used when leaving queue/game. If null, first world spawn is used." })
         public Location mainHubLocation;
 
-    @Comment({ "", "Minimum amount of players that is needed to game start." })
-    public int arenaMinPlayers = 5;
+                @Comment({ "", "Required players threshold to start a round." })
+        public int arenaRequiredPlayersToStart = 5;
 
-        @Comment({ "", "Stable required players threshold to start a round. 0 or less means fallback to arena-min-players." })
-        public int arenaRequiredPlayersToStart = 0;
-
-        @Comment({ "", "Max players in one map. 0 or less means auto based on configured spawn points." })
-        public int arenaMaxPlayers = 0;
+        @Comment({ "", "Max players in one map. 0 or less means auto based on configured spawn points; values above 0 are used directly and spawn points are reused." })
+        public int arenaMaxPlayers = 15;
 
     @Comment({ "", "Amount of players with 'DEATH' role on arena." })
     public int arenaDeathsAmount = 1;
