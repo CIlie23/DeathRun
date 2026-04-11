@@ -8,6 +8,7 @@ import dev.rollczi.litecommands.annotations.command.Command;
 import dev.rollczi.litecommands.annotations.context.Context;
 import dev.rollczi.litecommands.annotations.execute.Execute;
 import dev.rollczi.litecommands.annotations.permission.Permission;
+import me.clip.placeholderapi.PlaceholderAPI;
 import net.kyori.adventure.platform.bukkit.BukkitAudiences;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
@@ -1514,6 +1515,7 @@ public class CommandDeathRun {
         String content = (args != null && args.length > 0)
             ? java.lang.String.format(message, args)
             : message;
+        content = this.parsePlaceholders(player, content);
         this.audiences.player(player).sendMessage(miniMessage().deserialize(content));
     }
 
@@ -1529,11 +1531,21 @@ public class CommandDeathRun {
             @NotNull String message
     ) {
         if (sender instanceof Player player) {
-            this.audiences.player(player).sendMessage(miniMessage().deserialize(message));
+            this.audiences.player(player).sendMessage(miniMessage().deserialize(this.parsePlaceholders(player, message)));
             return;
         }
 
         sender.sendMessage(plainText().serialize(miniMessage().deserialize(message)));
+    }
+
+    private @NotNull String parsePlaceholders(
+            @NotNull Player player,
+            @NotNull String content
+    ) {
+        if (this.plugin.getServer().getPluginManager().getPlugin("PlaceholderAPI") == null)
+            return content;
+
+        return PlaceholderAPI.setPlaceholders(player, content);
     }
 
     protected List<Location> locations(@NotNull Player player) {

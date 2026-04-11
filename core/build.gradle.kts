@@ -40,6 +40,7 @@ repositories {
     maven("https://repo.opencollab.dev/maven-releases/")
     maven("https://repo.papermc.io/repository/maven-public/")
     maven("https://storehouse.okaeri.eu/repository/maven-public/")
+    maven("https://repo.extendedclip.com/content/repositories/placeholderapi/")
 }
 
 dependencies {
@@ -88,6 +89,9 @@ dependencies {
 
     /* NoteBlockAPI */
     compileOnly("com.github.koca2000:NoteBlockAPI:1.6.2")
+
+    /* PlaceholderAPI */
+    compileOnly("me.clip:placeholderapi:2.12.2")
 
     /* JetBrains Annotations */
     compileOnly("org.jetbrains:annotations:${project.parent?.property("jetbrains.annotations.version")}")

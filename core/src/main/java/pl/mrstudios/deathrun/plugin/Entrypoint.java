@@ -6,6 +6,7 @@ import dev.rollczi.litecommands.annotations.command.Command;
 import dev.rollczi.litecommands.argument.ArgumentKey;
 import dev.rollczi.litecommands.suggestion.SuggestionResult;
 import net.kyori.adventure.platform.bukkit.BukkitAudiences;
+import org.bukkit.Bukkit;
 import org.bukkit.Server;
 import org.bukkit.command.CommandSender;
 import org.bukkit.event.Listener;
@@ -39,6 +40,8 @@ import pl.mrstudios.deathrun.config.impl.LanguageConfiguration;
 import pl.mrstudios.deathrun.config.impl.MapConfiguration;
 import pl.mrstudios.deathrun.config.impl.PluginConfiguration;
 import pl.mrstudios.deathrun.exception.MissingDependencyException;
+import pl.mrstudios.deathrun.placeholder.DeathRunPlaceholderExpansion;
+import pl.mrstudios.deathrun.player.PlayerStatisticsService;
 import org.bukkit.map.MapPalette;
 import org.jetbrains.annotations.Nullable;
 
@@ -64,6 +67,7 @@ public class Entrypoint extends JavaPlugin {
     private TrapRegistry trapRegistry;
     private SignManager signManager;
     private WinMapManager winMapManager;
+    private PlayerStatisticsService playerStatisticsService;
     private volatile BufferedImage winParchmentImage;
     private volatile BufferedImage loseParchmentImage;
 
@@ -93,6 +97,7 @@ public class Entrypoint extends JavaPlugin {
                 this.configurationFactory.produce(LanguageConfiguration.class, "language.yml"),
                 this.configurationFactory.produce(MapConfiguration.class, "map.yml")
         );
+        this.playerStatisticsService = new PlayerStatisticsService(this);
 
         /* Data Folders */
         File songsDirectory = new File(this.getDataFolder(), "songs");
@@ -134,6 +139,7 @@ public class Entrypoint extends JavaPlugin {
                 .register(SignManager.class, this.signManager)
                 .register(WinMapManager.class, this.winMapManager)
                 .register(TrapRegistry.class, this.trapRegistry)
+                .register(PlayerStatisticsService.class, this.playerStatisticsService)
                 .register(MapSelectorService.class, new MapSelectorService(this, this.configuration, this.arenaManager, this.audiences))
                 .register(Configuration.class, this.configuration);
 
@@ -230,6 +236,10 @@ public class Entrypoint extends JavaPlugin {
         /* Register Channel */
         this.getServer().getMessenger().registerOutgoingPluginChannel(this, "BungeeCord");
 
+        if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
+            new DeathRunPlaceholderExpansion(this).register();
+        }
+
         /* Check Branch */
         if (!apiInstance().pluginGitBranch().equals("ver/latest"))
             this.getLogger().warning(
@@ -259,6 +269,9 @@ public class Entrypoint extends JavaPlugin {
         if (this.arenaManager != null)
             this.arenaManager.saveLoadedMapWorlds();
 
+        if (this.playerStatisticsService != null)
+            this.playerStatisticsService.save();
+
         if (this.signManager != null)
             this.signManager.shutdown();
 
@@ -283,6 +296,18 @@ public class Entrypoint extends JavaPlugin {
 
     public @Nullable BufferedImage getLoseParchmentImage() {
         return this.loseParchmentImage;
+    }
+
+    public @NotNull ArenaManager getArenaManager() {
+        return this.arenaManager;
+    }
+
+    public @NotNull Configuration getConfiguration() {
+        return this.configuration;
+    }
+
+    public @NotNull PlayerStatisticsService getPlayerStatisticsService() {
+        return this.playerStatisticsService;
     }
 
     private void loadParchmentImagesAsync() {

@@ -5,6 +5,7 @@ import org.bukkit.block.Sign;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.EquipmentSlot;
 import org.jetbrains.annotations.NotNull;
 import pl.mrstudios.commons.inject.annotation.Inject;
 import pl.mrstudios.deathrun.arena.ArenaManager;
@@ -15,6 +16,9 @@ import static org.bukkit.event.EventPriority.HIGHEST;
 import static org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK;
 
 public class ArenaSignInteractListener implements Listener {
+
+    private static final String SIGN_USE_PERMISSION = "deathrun.signs.use";
+    private static final String LEGACY_SIGN_USE_PERMISSION = "deathrun.sign.use";
 
     private final ArenaManager arenaManager;
     private final SignManager signManager;
@@ -32,6 +36,9 @@ public class ArenaSignInteractListener implements Listener {
     public void onPlayerInteract(
             @NotNull PlayerInteractEvent event
     ) {
+        if (event.getHand() != EquipmentSlot.HAND)
+            return;
+
         if (event.getAction() != RIGHT_CLICK_BLOCK || event.getClickedBlock() == null)
             return;
 
@@ -42,7 +49,8 @@ public class ArenaSignInteractListener implements Listener {
         if (queueSign == null)
             return;
 
-        if (!event.getPlayer().hasPermission("deathrun.signs.use")) {
+        if (!event.getPlayer().hasPermission(SIGN_USE_PERMISSION)
+            && !event.getPlayer().hasPermission(LEGACY_SIGN_USE_PERMISSION)) {
             event.setCancelled(true);
             event.getPlayer().sendMessage(ChatColor.RED + "You don't have permission to use DeathRun signs.");
             return;

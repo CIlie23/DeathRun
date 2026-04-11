@@ -15,8 +15,6 @@ import pl.mrstudios.deathrun.arena.ArenaManager;
 
 import static org.bukkit.event.EventPriority.MONITOR;
 import static org.bukkit.event.inventory.InventoryType.PLAYER;
-import static pl.mrstudios.deathrun.api.arena.enums.GameState.PLAYING;
-
 public class ArenaInventoryActionListener implements Listener {
 
     private static final String INVENTORY_BYPASS_PERMISSION = "deathrun.inventory.bypass";
@@ -67,8 +65,13 @@ public class ArenaInventoryActionListener implements Listener {
         if (this.hasInventoryBypass(event.getPlayer()))
             return;
 
+        // Paper 1.20.2+ also fires PlayerDropItemEvent on death.
+        // Do not cancel in that case, otherwise death drops are swallowed.
+        if (event.getPlayer().isDead())
+            return;
+
         var runtime = this.arenaManager.runtimeForPlayer(event.getPlayer());
-        if (runtime == null || runtime.arena().getGameState() != PLAYING)
+        if (runtime == null)
             return;
 
         event.setCancelled(true);

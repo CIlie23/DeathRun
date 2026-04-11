@@ -3,6 +3,7 @@ package pl.mrstudios.deathrun.arena;
 import com.xxmicloxx.NoteBlockAPI.model.Song;
 import com.xxmicloxx.NoteBlockAPI.songplayer.RadioSongPlayer;
 import com.xxmicloxx.NoteBlockAPI.utils.NBSDecoder;
+import me.clip.placeholderapi.PlaceholderAPI;
 import net.kyori.adventure.platform.bukkit.BukkitAudiences;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Location;
@@ -502,7 +503,8 @@ public class ArenaServiceRunnable extends BukkitRunnable {
                             ofNullable(this.arena.getUser(player))
                                     .ifPresentOrElse(
                                             (user) -> component.set(miniMessage().deserialize(
-                                                    content.replace("<map>", this.displayMapName())
+                                                    this.applySidebarPlaceholders(player,
+                                                            content.replace("<map>", this.displayMapName())
                                                             .replace("<role>", this.rolePrefix(user.getRole()))
                                                             .replace("<currentPlayers>", valueOf(this.arena.getUsers().size()))
                                                             .replace("<maxPlayers>", valueOf(this.map.arenaRunnerSpawnLocations.size() + this.map.arenaDeathSpawnLocations.size()))
@@ -512,6 +514,7 @@ public class ArenaServiceRunnable extends BukkitRunnable {
                                                             .replace("<runners>", valueOf(this.arena.getRunners().size()))
                                                             .replace("<deaths>", valueOf(user.getDeaths()))
                                                             .replace("<deathPlayers>", valueOf(this.arena.getDeaths().size()))
+                                                    )
                                             )),
                                             () -> this.arena.getSidebar().removeViewer(player)
                                     );
@@ -520,6 +523,16 @@ public class ArenaServiceRunnable extends BukkitRunnable {
 
                         });
     }
+
+        private @NotNull String applySidebarPlaceholders(
+                        @NotNull Player player,
+                        @NotNull String content
+        ) {
+                if (this.plugin.getServer().getPluginManager().getPlugin("PlaceholderAPI") == null)
+                        return content;
+
+                return PlaceholderAPI.setPlaceholders(player, content);
+        }
 
     protected String rolePrefix(
             @NotNull Role role

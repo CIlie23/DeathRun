@@ -19,7 +19,7 @@ import static java.util.Arrays.asList;
         " ",
         " This is configuration file for DeathRun plugin, if you found any issue ",
         " contact with us through Discord or create issue on GitHub. If you need",
-        " help with configuration visit https://mrstudios.pl/documentation.",
+        " help with configuration visit https://github.com/CIlie23/DeathRun/wiki.",
         " "
 }) @SuppressWarnings("deprecation")
 @Names(strategy = HYPHEN_CASE, modifier = TO_LOWER_CASE)
@@ -268,7 +268,7 @@ public class LanguageConfiguration extends OkaeriConfig {
             "<reset>",
             "<white>Waiting..",
             "<reset>",
-            "<yellow>www.mrstudios.pl"
+            "<yellow>www.example.com"
     );
 
     public List<String> arenaScoreboardLinesStarting = asList(
@@ -278,7 +278,7 @@ public class LanguageConfiguration extends OkaeriConfig {
             "<reset>",
             "<white>Start in <green><timer> seconds",
             "<reset>",
-            "<yellow>www.mrstudios.pl"
+            "<yellow>www.example.com"
     );
 
     public List<String> arenaScoreboardLinesPlaying = asList(
@@ -291,7 +291,7 @@ public class LanguageConfiguration extends OkaeriConfig {
             "<reset>",
             "<white>Map: <green><map>",
             "<reset>",
-            "<yellow>www.mrstudios.pl"
+            "<yellow>www.example.com"
     );
 
     @Comment({
